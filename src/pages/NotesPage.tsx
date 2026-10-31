@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import { Note } from "../types/database"
-import { fetchUserNotes, saveUserNote, deleteUserNote } from "../lib/supabase"
-import { FileText, Plus, Trash2, Loader2, LogIn } from "lucide-react"
+import { fetchUserNotes, saveUserNote, updateUserNote, deleteUserNote } from "../lib/supabase"
+import { FileText, Plus, Trash2, Pencil, Check, X, Loader2, LogIn } from "lucide-react"
 
 export default function NotesPage() {
   const { currentUser } = useAuth()
@@ -11,6 +11,11 @@ export default function NotesPage() {
   const [newContent, setNewContent] = useState("")
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+
+  // Edit Note State
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null)
+  const [editContent, setEditContent] = useState("")
+  const [isUpdating, setIsUpdating] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -45,6 +50,36 @@ export default function NotesPage() {
     }
   }
 
+  const startEdit = (note: Note) => {
+    setEditingNoteId(note.id)
+    setEditContent(note.content)
+  }
+
+  const cancelEdit = () => {
+    setEditingNoteId(null)
+    setEditContent("")
+  }
+
+  const handleSaveEdit = async (noteId: number) => {
+    if (!currentUser || !editContent.trim() || isUpdating) return
+
+    setIsUpdating(true)
+    try {
+      const updated = await updateUserNote(noteId, currentUser.id, editContent.trim())
+      setNotes((prev) =>
+        prev.map((n) =>
+          n.id === noteId ? { ...n, content: updated.content, updated_at: updated.updated_at } : n
+        )
+      )
+      setEditingNoteId(null)
+      setEditContent("")
+    } catch (err: any) {
+      alert(err?.message || "Failed to update note.")
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
   const handleDelete = async (noteId: number) => {
     if (!currentUser) return
     if (!confirm("Are you sure you want to delete this study note?")) return
@@ -52,6 +87,7 @@ export default function NotesPage() {
     try {
       await deleteUserNote(noteId, currentUser.id)
       setNotes((prev) => prev.filter((n) => n.id !== noteId))
+      if (editingNoteId === noteId) cancelEdit()
     } catch (err: any) {
       alert(err?.message || "Failed to delete note.")
     }
@@ -123,29 +159,83 @@ export default function NotesPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {notes.map((note) => (
-                <div
-                  key={note.id}
-                  className="bg-white p-5 rounded-2xl border border-stone-200 shadow-2xs flex flex-col justify-between space-y-3"
-                >
-                  <p className="text-xs text-stone-800 leading-relaxed whitespace-pre-wrap">{note.content}</p>
+              {notes.map((note) => {
+                const isEditing = editingNoteId === note.id
 
-                  <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-400">
-                    <span>
-                      {note.is_global ? "Global Note" : "Class Note"} &bull;{" "}
-                      {new Date(note.updated_at || note.created_at).toLocaleDateString()}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(note.id)}
-                      className="text-stone-400 hover:text-red-600 transition cursor-pointer"
-                      title="Delete Note"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                return (
+                  <div
+                    key={note.id}
+                    className="bg-white p-5 rounded-2xl border border-stone-200 shadow-2xs flex flex-col justify-between space-y-3"
+                  >
+                    {isEditing ? (
+                      <div className="space-y-3">
+                        <textarea
+                          rows={4}
+                          value={editContent}
+                          onChange={(e) => setEditContent(e.target.value)}
+                          className="w-full p-3 text-xs rounded-xl border border-stone-300 focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600 transition resize-none"
+                        />
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={cancelEdit}
+                            className="px-3 py-1.5 rounded-lg text-xs text-stone-500 hover:bg-stone-100 transition cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={!editContent.trim() || isUpdating}
+                            onClick={() => handleSaveEdit(note.id)}
+                            className="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-semibold text-xs flex items-center gap-1.5 transition cursor-pointer"
+                          >
+                            {isUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                            <span>Save Changes</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-xs text-stone-800 leading-relaxed whitespace-pre-wrap">{note.content}</p>
+
+                        <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-400">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-medium text-stone-500">
+                              {note.is_global ? "Global Note" : "Class Note"}
+                            </span>
+                            <span>&bull;</span>
+                            <span className="font-mono">
+                              {new Date(note.updated_at || note.created_at).toLocaleDateString()}
+                            </span>
+                            {note.updated_at && note.updated_at !== note.created_at && (
+                              <span className="text-[10px] text-amber-600 italic">(edited)</span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startEdit(note)}
+                              className="text-stone-400 hover:text-amber-700 transition cursor-pointer p-1"
+                              title="Edit Note"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(note.id)}
+                              className="text-stone-400 hover:text-red-600 transition cursor-pointer p-1"
+                              title="Delete Note"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
@@ -153,4 +243,3 @@ export default function NotesPage() {
     </div>
   )
 }
-

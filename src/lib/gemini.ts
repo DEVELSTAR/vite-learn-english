@@ -1,13 +1,13 @@
 import { GoogleGenerativeAI } from "@google/generative-ai"
 
-// Model candidates in priority order
+// Model candidates in priority order (verified against Google Generative Language v1 API)
 const DEFAULT_CANDIDATES = [
+  "gemini-3.1-flash-lite",
+  "gemini-3.8-flash",
+  "gemini-3.7-flash",
+  "gemini-3.5-flash",
   "gemini-2.5-flash",
   "gemini-2.0-flash",
-  "gemini-2.0-flash-lite",
-  "gemini-1.5-flash-latest",
-  "gemini-1.5-pro-latest",
-  "gemini-pro",
 ]
 
 let cachedWorkingModel: string | null = null
@@ -45,12 +45,16 @@ export async function sendGeminiChatMessage(options: SendMessageOptions): Promis
 
   let lastError: any = null
 
+  // Try each candidate with the stable 'v1' endpoint
   for (const modelName of candidates) {
     try {
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-        ...(systemInstruction ? { systemInstruction } : {}),
-      })
+      const model = genAI.getGenerativeModel(
+        {
+          model: modelName,
+          ...(systemInstruction ? { systemInstruction } : {}),
+        },
+        { apiVersion: "v1" }
+      )
 
       const historyFormatted = messages.map((m) => ({
         role: m.role === "model" ? "model" : "user",
@@ -72,21 +76,24 @@ export async function sendGeminiChatMessage(options: SendMessageOptions): Promis
       lastError = err
       const errMsg = String(err?.message || err)
 
-      // If model not found or not supported for generateContent (404), continue to next model
+      // If model not found, no longer available, or temporary 503 high demand, try next model
       if (
         errMsg.includes("404") ||
+        errMsg.includes("503") ||
+        errMsg.includes("high demand") ||
+        errMsg.includes("no longer available") ||
         errMsg.includes("not found") ||
         errMsg.includes("not supported") ||
         errMsg.includes("ListModels")
       ) {
-        console.warn(`[Gemini] Model "${modelName}" not available (${errMsg}), trying fallback...`)
+        console.warn(`[Gemini] Model "${modelName}" failed with: ${errMsg}. Trying fallback candidate...`)
         continue
       }
 
       // If systemInstruction is not supported on this model, retry without it
       if (errMsg.toLowerCase().includes("system instruction") || errMsg.toLowerCase().includes("system_instruction")) {
         try {
-          const fallbackModel = genAI.getGenerativeModel({ model: modelName })
+          const fallbackModel = genAI.getGenerativeModel({ model: modelName }, { apiVersion: "v1" })
           const augmentedPrompt = systemInstruction
             ? `[System Instructions: ${systemInstruction}]\n\n${userMessage}`
             : userMessage
@@ -102,11 +109,10 @@ export async function sendGeminiChatMessage(options: SendMessageOptions): Promis
         }
       }
 
-      // If it is another error (e.g. invalid key, quota limit), don't silently loop - rethrow
+      // If it is another hard error (e.g. invalid key, quota limit), rethrow
       throw err
     }
   }
 
   throw lastError || new Error("Unable to get response from Gemini AI. Please check your model configuration.")
 }
-

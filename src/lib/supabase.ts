@@ -419,6 +419,50 @@ export async function postLessonComment(
   return data as LessonComment
 }
 
+export async function updateLessonComment(
+  commentId: number,
+  userId: number,
+  content: string
+): Promise<LessonComment> {
+  if (!supabase) throw new Error("Supabase not configured")
+
+  const { data, error } = await supabase
+    .from("lesson_comments")
+    .update({
+      content: content.trim(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", commentId)
+    .eq("user_id", userId)
+    .select("*, user:users(id, name, email_address, role)")
+    .single()
+
+  if (error) throw error
+  return data as LessonComment
+}
+
+export async function deleteLessonComment(
+  commentId: number,
+  userId: number
+): Promise<void> {
+  if (!supabase) return
+
+  // Delete nested replies if any
+  try {
+    await supabase.from("lesson_comments").delete().eq("parent_id", commentId)
+  } catch (e) {
+    console.warn("Could not delete child replies:", e)
+  }
+
+  const { error } = await supabase
+    .from("lesson_comments")
+    .delete()
+    .eq("id", commentId)
+    .eq("user_id", userId)
+
+  if (error) throw error
+}
+
 // 7. Student Notes
 export async function fetchUserNotes(userId: number, lessonId?: number | null): Promise<Note[]> {
   if (!supabase) return []
@@ -476,6 +520,14 @@ export async function saveUserNote(
     if (error) throw error
     return data as Note
   }
+}
+
+export async function updateUserNote(
+  noteId: number,
+  userId: number,
+  content: string
+): Promise<Note> {
+  return saveUserNote(userId, content, undefined, noteId)
 }
 
 export async function deleteUserNote(noteId: number, userId: number): Promise<void> {
@@ -538,5 +590,67 @@ export async function saveLessonChatMessage(
 
   if (error) throw error
   return data as LessonChatMessage
+}
+
+export async function updateLessonChatMessage(
+  messageId: number,
+  userId: number,
+  content: string
+): Promise<LessonChatMessage> {
+  if (!supabase) {
+    return {
+      id: messageId,
+      lesson_id: 0,
+      user_id: userId,
+      role: "user",
+      content,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("lesson_chat_messages")
+    .update({
+      content: content.trim(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", messageId)
+    .eq("user_id", userId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as LessonChatMessage
+}
+
+export async function deleteLessonChatMessage(
+  messageId: number,
+  userId: number
+): Promise<void> {
+  if (!supabase) return
+
+  const { error } = await supabase
+    .from("lesson_chat_messages")
+    .delete()
+    .eq("id", messageId)
+    .eq("user_id", userId)
+
+  if (error) throw error
+}
+
+export async function clearLessonChatMessages(
+  lessonId: number,
+  userId: number
+): Promise<void> {
+  if (!supabase) return
+
+  const { error } = await supabase
+    .from("lesson_chat_messages")
+    .delete()
+    .eq("lesson_id", lessonId)
+    .eq("user_id", userId)
+
+  if (error) throw error
 }
 

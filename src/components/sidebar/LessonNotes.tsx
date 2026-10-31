@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react"
-import { FileText, Plus, Trash2, Check, Loader2 } from "lucide-react"
+import { FileText, Plus, Trash2, Pencil, Check, X, Loader2 } from "lucide-react"
 import { Lesson, Note } from "../../types/database"
 import { useAuth } from "../../context/AuthContext"
-import { fetchUserNotes, saveUserNote, deleteUserNote } from "../../lib/supabase"
+import { fetchUserNotes, saveUserNote, updateUserNote, deleteUserNote } from "../../lib/supabase"
 
 interface LessonNotesProps {
   lesson: Lesson
@@ -15,6 +15,11 @@ export default function LessonNotes({ lesson, onNotesCountChange }: LessonNotesP
   const [newContent, setNewContent] = useState("")
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+
+  // Edit State
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null)
+  const [editContent, setEditContent] = useState("")
+  const [isUpdating, setIsUpdating] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -57,6 +62,36 @@ export default function LessonNotes({ lesson, onNotesCountChange }: LessonNotesP
     }
   }
 
+  const startEdit = (note: Note) => {
+    setEditingNoteId(note.id)
+    setEditContent(note.content)
+  }
+
+  const cancelEdit = () => {
+    setEditingNoteId(null)
+    setEditContent("")
+  }
+
+  const handleSaveEdit = async (noteId: number) => {
+    if (!currentUser || !editContent.trim() || isUpdating) return
+
+    setIsUpdating(true)
+    try {
+      const updated = await updateUserNote(noteId, currentUser.id, editContent.trim())
+      setNotes((prev) =>
+        prev.map((n) =>
+          n.id === noteId ? { ...n, content: updated.content, updated_at: updated.updated_at } : n
+        )
+      )
+      setEditingNoteId(null)
+      setEditContent("")
+    } catch (err: any) {
+      alert(err?.message || "Failed to update note.")
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
   const handleDelete = async (noteId: number) => {
     if (!currentUser) return
     if (!confirm("Are you sure you want to delete this note?")) return
@@ -66,6 +101,7 @@ export default function LessonNotes({ lesson, onNotesCountChange }: LessonNotesP
       const updated = notes.filter((n) => n.id !== noteId)
       setNotes(updated)
       onNotesCountChange?.(updated.length)
+      if (editingNoteId === noteId) cancelEdit()
     } catch (err: any) {
       alert(err?.message || "Failed to delete note.")
     }
@@ -108,25 +144,75 @@ export default function LessonNotes({ lesson, onNotesCountChange }: LessonNotesP
             </p>
           </div>
         ) : (
-          notes.map((note) => (
-            <div
-              key={note.id}
-              className="bg-amber-50/50 border border-amber-200/80 rounded-xl p-3 shadow-2xs space-y-2"
-            >
-              <p className="text-stone-800 leading-relaxed whitespace-pre-wrap">{note.content}</p>
-              <div className="flex items-center justify-between pt-1 border-t border-amber-200/50 text-[10px] text-stone-400">
-                <span>{new Date(note.updated_at || note.created_at).toLocaleDateString()}</span>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(note.id)}
-                  className="text-stone-400 hover:text-red-600 transition cursor-pointer"
-                  title="Delete note"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+          notes.map((note) => {
+            const isEditing = editingNoteId === note.id
+
+            return (
+              <div
+                key={note.id}
+                className="bg-amber-50/50 border border-amber-200/80 rounded-xl p-3 shadow-2xs space-y-2"
+              >
+                {isEditing ? (
+                  <div className="space-y-2">
+                    <textarea
+                      rows={3}
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      className="w-full p-2 text-xs rounded-lg border border-stone-300 focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600 bg-white resize-none"
+                    />
+                    <div className="flex items-center justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={cancelEdit}
+                        className="px-2.5 py-1 rounded text-[11px] text-stone-500 hover:bg-stone-200/60 transition cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!editContent.trim() || isUpdating}
+                        onClick={() => handleSaveEdit(note.id)}
+                        className="px-3 py-1 rounded bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-semibold text-[11px] flex items-center gap-1 transition cursor-pointer"
+                      >
+                        {isUpdating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                        <span>Save</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-stone-800 leading-relaxed whitespace-pre-wrap">{note.content}</p>
+                    <div className="flex items-center justify-between pt-1 border-t border-amber-200/50 text-[10px] text-stone-400">
+                      <div className="flex items-center gap-1">
+                        <span className="font-mono">{new Date(note.updated_at || note.created_at).toLocaleDateString()}</span>
+                        {note.updated_at && note.updated_at !== note.created_at && (
+                          <span className="text-[9px] text-amber-600 italic">(edited)</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => startEdit(note)}
+                          className="text-stone-400 hover:text-amber-700 transition cursor-pointer p-0.5"
+                          title="Edit note"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(note.id)}
+                          className="text-stone-400 hover:text-red-600 transition cursor-pointer p-0.5"
+                          title="Delete note"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
-            </div>
-          ))
+            )
+          })
         )}
       </div>
 
@@ -155,4 +241,3 @@ export default function LessonNotes({ lesson, onNotesCountChange }: LessonNotesP
     </div>
   )
 }
-
