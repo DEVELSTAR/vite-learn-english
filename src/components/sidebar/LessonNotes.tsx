@@ -3,6 +3,7 @@ import { FileText, Plus, Trash2, Pencil, Check, X, Loader2 } from "lucide-react"
 import { Lesson, Note } from "../../types/database"
 import { useAuth } from "../../context/AuthContext"
 import { fetchUserNotes, saveUserNote, updateUserNote, deleteUserNote } from "../../lib/supabase"
+import ReactionBar from "../common/ReactionBar"
 
 interface LessonNotesProps {
   lesson: Lesson
@@ -182,30 +183,35 @@ export default function LessonNotes({ lesson, onNotesCountChange }: LessonNotesP
                 ) : (
                   <>
                     <p className="text-stone-800 leading-relaxed whitespace-pre-wrap">{note.content}</p>
-                    <div className="flex items-center justify-between pt-1 border-t border-amber-200/50 text-[10px] text-stone-400">
+                    <div className="flex flex-wrap items-center justify-between gap-1 pt-1.5 border-t border-amber-200/50 text-[10px] text-stone-400">
                       <div className="flex items-center gap-1">
                         <span className="font-mono">{new Date(note.updated_at || note.created_at).toLocaleDateString()}</span>
                         {note.updated_at && note.updated_at !== note.created_at && (
                           <span className="text-[9px] text-amber-600 italic">(edited)</span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => startEdit(note)}
-                          className="text-stone-400 hover:text-amber-700 transition cursor-pointer p-0.5"
-                          title="Edit note"
-                        >
-                          <Pencil className="w-3 h-3" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(note.id)}
-                          className="text-stone-400 hover:text-red-600 transition cursor-pointer p-0.5"
-                          title="Delete note"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
+
+                      <div className="flex items-center gap-1.5">
+                        <ReactionBar entityType="note" entityId={note.id} align="right" />
+
+                        <div className="flex items-center gap-1 pl-1 border-l border-amber-200/60">
+                          <button
+                            type="button"
+                            onClick={() => startEdit(note)}
+                            className="text-stone-400 hover:text-amber-700 transition cursor-pointer p-0.5"
+                            title="Edit note"
+                          >
+                            <Pencil className="w-2.5 h-2.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(note.id)}
+                            className="text-stone-400 hover:text-red-600 transition cursor-pointer p-0.5"
+                            title="Delete note"
+                          >
+                            <Trash2 className="w-2.5 h-2.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </>

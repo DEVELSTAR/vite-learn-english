@@ -8,6 +8,7 @@ import {
   updateLessonComment,
   deleteLessonComment,
 } from "../../lib/supabase"
+import ReactionBar from "../common/ReactionBar"
 
 interface ChatRoomProps {
   lesson: Lesson
@@ -212,29 +213,31 @@ export default function ChatRoom({ lesson, onCommentCountChange }: ChatRoomProps
                     <>
                       <p className="text-stone-700 leading-relaxed whitespace-pre-wrap">{comment.content}</p>
 
-                      <div className="pt-1 flex items-center justify-between border-t border-stone-100">
+                      <div className="pt-1.5 flex flex-wrap items-center justify-between gap-1.5 border-t border-stone-100">
                         <div className="flex items-center gap-2">
+                          <ReactionBar entityType="comment" entityId={comment.id} align="left" />
+
                           {isOwner && (
-                            <>
+                            <div className="flex items-center gap-1.5 pl-1.5 border-l border-stone-200">
                               <button
                                 type="button"
                                 onClick={() => startEdit(comment)}
-                                className="text-[11px] text-stone-400 hover:text-emerald-700 font-medium flex items-center gap-1 cursor-pointer transition"
+                                className="text-[11px] text-stone-400 hover:text-emerald-700 font-medium flex items-center gap-1 cursor-pointer transition p-0.5"
                                 title="Edit message"
                               >
-                                <Pencil className="w-3 h-3" />
+                                <Pencil className="w-2.5 h-2.5" />
                                 <span>Edit</span>
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleDelete(comment.id)}
-                                className="text-[11px] text-stone-400 hover:text-red-600 font-medium flex items-center gap-1 cursor-pointer transition"
+                                className="text-[11px] text-stone-400 hover:text-red-600 font-medium flex items-center gap-1 cursor-pointer transition p-0.5"
                                 title="Delete message"
                               >
-                                <Trash2 className="w-3 h-3" />
+                                <Trash2 className="w-2.5 h-2.5" />
                                 <span>Delete</span>
                               </button>
-                            </>
+                            </div>
                           )}
                         </div>
 
@@ -305,28 +308,32 @@ export default function ChatRoom({ lesson, onCommentCountChange }: ChatRoomProps
                             <>
                               <p className="text-stone-700 leading-relaxed whitespace-pre-wrap">{reply.content}</p>
 
-                              {isReplyOwner && (
-                                <div className="pt-1 flex items-center justify-end gap-2 border-t border-stone-200/60">
-                                  <button
-                                    type="button"
-                                    onClick={() => startEdit(reply)}
-                                    className="text-[10px] text-stone-400 hover:text-emerald-700 font-medium flex items-center gap-1 cursor-pointer transition"
-                                    title="Edit reply"
-                                  >
-                                    <Pencil className="w-2.5 h-2.5" />
-                                    <span>Edit</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDelete(reply.id)}
-                                    className="text-[10px] text-stone-400 hover:text-red-600 font-medium flex items-center gap-1 cursor-pointer transition"
-                                    title="Delete reply"
-                                  >
-                                    <Trash2 className="w-2.5 h-2.5" />
-                                    <span>Delete</span>
-                                  </button>
-                                </div>
-                              )}
+                              <div className="pt-1.5 flex flex-wrap items-center justify-between gap-1.5 border-t border-stone-200/60">
+                                <ReactionBar entityType="comment" entityId={reply.id} align="left" />
+
+                                {isReplyOwner && (
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => startEdit(reply)}
+                                      className="text-[10px] text-stone-400 hover:text-emerald-700 font-medium flex items-center gap-1 cursor-pointer transition p-0.5"
+                                      title="Edit reply"
+                                    >
+                                      <Pencil className="w-2.5 h-2.5" />
+                                      <span>Edit</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDelete(reply.id)}
+                                      className="text-[10px] text-stone-400 hover:text-red-600 font-medium flex items-center gap-1 cursor-pointer transition p-0.5"
+                                      title="Delete reply"
+                                    >
+                                      <Trash2 className="w-2.5 h-2.5" />
+                                      <span>Delete</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </>
                           )}
                         </div>

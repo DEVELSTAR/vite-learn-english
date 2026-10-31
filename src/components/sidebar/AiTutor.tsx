@@ -10,6 +10,7 @@ import {
   clearLessonChatMessages,
 } from "../../lib/supabase"
 import { sendGeminiChatMessage } from "../../lib/gemini"
+import ReactionBar from "../common/ReactionBar"
 
 interface Message {
   id?: number
@@ -358,32 +359,40 @@ Always provide concise, encouraging, and clear explanations. Use Hinglish sparin
                       {m.content}
                     </div>
 
-                    {/* Action buttons (Edit & Delete for user messages, Delete for AI replies) */}
+                    {/* Reactions & Action buttons */}
                     <div
-                      className={`flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition px-1 ${
+                      className={`flex flex-wrap items-center gap-1.5 px-1 ${
                         isUser ? "justify-end" : "justify-start"
                       }`}
                     >
-                      {isUser && (
+                      <ReactionBar
+                        entityType="ai_chat"
+                        entityId={m.id ? `id_${m.id}` : `idx_${idx}_${lesson.id}`}
+                        align={isUser ? "right" : "left"}
+                      />
+
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                        {isUser && (
+                          <button
+                            type="button"
+                            onClick={() => startEdit(idx, m.content)}
+                            className="text-[10px] text-stone-400 hover:text-emerald-700 flex items-center gap-0.5 cursor-pointer p-0.5"
+                            title="Edit message"
+                          >
+                            <Pencil className="w-2.5 h-2.5" />
+                            <span>Edit</span>
+                          </button>
+                        )}
                         <button
                           type="button"
-                          onClick={() => startEdit(idx, m.content)}
-                          className="text-[10px] text-stone-400 hover:text-emerald-700 flex items-center gap-0.5 cursor-pointer"
-                          title="Edit message"
+                          onClick={() => handleDeleteMessage(idx)}
+                          className="text-[10px] text-stone-400 hover:text-red-600 flex items-center gap-0.5 cursor-pointer p-0.5"
+                          title="Delete message"
                         >
-                          <Pencil className="w-2.5 h-2.5" />
-                          <span>Edit</span>
+                          <Trash2 className="w-2.5 h-2.5" />
+                          <span>Delete</span>
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteMessage(idx)}
-                        className="text-[10px] text-stone-400 hover:text-red-600 flex items-center gap-0.5 cursor-pointer"
-                        title="Delete message"
-                      >
-                        <Trash2 className="w-2.5 h-2.5" />
-                        <span>Delete</span>
-                      </button>
+                      </div>
                     </div>
                   </div>
                 )}

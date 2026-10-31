@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext"
 import { Note } from "../types/database"
 import { fetchUserNotes, saveUserNote, updateUserNote, deleteUserNote } from "../lib/supabase"
 import { FileText, Plus, Trash2, Pencil, Check, X, Loader2, LogIn } from "lucide-react"
+import ReactionBar from "../components/common/ReactionBar"
 
 export default function NotesPage() {
   const { currentUser } = useAuth()
@@ -198,7 +199,7 @@ export default function NotesPage() {
                       <>
                         <p className="text-xs text-stone-800 leading-relaxed whitespace-pre-wrap">{note.content}</p>
 
-                        <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-400">
+                        <div className="pt-2 border-t border-stone-100 flex flex-wrap items-center justify-between gap-2 text-[11px] text-stone-400">
                           <div className="flex items-center gap-1.5">
                             <span className="font-medium text-stone-500">
                               {note.is_global ? "Global Note" : "Class Note"}
@@ -213,22 +214,26 @@ export default function NotesPage() {
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => startEdit(note)}
-                              className="text-stone-400 hover:text-amber-700 transition cursor-pointer p-1"
-                              title="Edit Note"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(note.id)}
-                              className="text-stone-400 hover:text-red-600 transition cursor-pointer p-1"
-                              title="Delete Note"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            <ReactionBar entityType="note" entityId={note.id} align="right" />
+
+                            <div className="flex items-center gap-1 pl-1 border-l border-stone-200">
+                              <button
+                                type="button"
+                                onClick={() => startEdit(note)}
+                                className="text-stone-400 hover:text-amber-700 transition cursor-pointer p-1"
+                                title="Edit Note"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(note.id)}
+                                className="text-stone-400 hover:text-red-600 transition cursor-pointer p-1"
+                                title="Delete Note"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </>
