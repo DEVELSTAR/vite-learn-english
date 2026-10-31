@@ -51,9 +51,20 @@ function ProtectedRoute({ children }: { children: React.ReactElement }) {
   return children
 }
 
+function ScrollToTop() {
+  const { pathname } = useLocation()
+
+  React.useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
+
+  return null
+}
+
 function AppContent() {
   return (
     <div className="min-h-screen flex flex-col justify-between selection:bg-emerald-200 selection:text-emerald-900">
+      <ScrollToTop />
       <div>
         <SetupBanner />
         <Navbar />

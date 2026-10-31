@@ -29,7 +29,8 @@ export default function AiTutor({ lesson }: AiTutorProps) {
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const isInitialMount = useRef(true)
 
   // Editing state
   const [editingIdx, setEditingIdx] = useState<number | null>(null)
@@ -58,7 +59,18 @@ export default function AiTutor({ lesson }: AiTutorProps) {
   }, [lesson.id, currentUser?.id])
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    if (!scrollContainerRef.current) return
+
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight
+      return
+    }
+
+    scrollContainerRef.current.scrollTo({
+      top: scrollContainerRef.current.scrollHeight,
+      behavior: "smooth",
+    })
   }, [messages, isLoading])
 
   const handleSend = async (e?: React.FormEvent, customPrompt?: string) => {
@@ -254,7 +266,7 @@ Always provide concise, encouraging, and clear explanations. Use Hinglish sparin
       </div>
 
       {/* Messages Scroll Area */}
-      <div className="flex-1 overflow-y-auto p-3.5 space-y-3 text-xs">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-3.5 space-y-3 text-xs">
         {messages.length === 0 ? (
           <div className="text-center py-6 space-y-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-inner">
@@ -420,8 +432,6 @@ Always provide concise, encouraging, and clear explanations. Use Hinglish sparin
             <span>{error}</span>
           </div>
         )}
-
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Input Box */}
