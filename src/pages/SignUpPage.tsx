@@ -1,17 +1,32 @@
-import React, { useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import React, { useState, useEffect } from "react"
+import { Link, useNavigate, useLocation } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
-import { UserPlus, Mail, Lock, User, AlertCircle, Loader2 } from "lucide-react"
+import { UserPlus, Mail, Lock, User, AlertCircle, Loader2, KeyRound } from "lucide-react"
 
 export default function SignUpPage() {
   const navigate = useNavigate()
-  const { register } = useAuth()
+  const location = useLocation()
+  const { register, currentUser } = useAuth()
 
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const queryParams = new URLSearchParams(location.search)
+  const redirectTo = queryParams.get("redirectTo") || "/"
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (currentUser) {
+      if (currentUser.role === 1 || currentUser.role === 2) {
+        navigate("/admin", { replace: true })
+      } else {
+        navigate(redirectTo, { replace: true })
+      }
+    }
+  }, [currentUser, navigate, redirectTo])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -20,7 +35,7 @@ export default function SignUpPage() {
 
     const res = await register(name, email, password)
     if (res.success) {
-      navigate("/", { replace: true })
+      navigate(redirectTo, { replace: true })
     } else {
       setError(res.error || "Failed to create account.")
       setIsLoading(false)
@@ -37,6 +52,13 @@ export default function SignUpPage() {
           <h1 className="text-2xl font-black text-stone-900 tracking-tight">Create Student Account</h1>
           <p className="text-xs text-stone-500">Join thousands of learners overcoming English hesitation.</p>
         </div>
+
+        {redirectTo !== "/" && (
+          <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-center gap-2">
+            <KeyRound className="w-4 h-4 shrink-0 text-emerald-600" />
+            <span>Create a free account to unlock all classes, AI Tutor, and notes.</span>
+          </div>
+        )}
 
         {error && (
           <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center gap-2">
@@ -98,18 +120,28 @@ export default function SignUpPage() {
             className="w-full py-2.5 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-50 text-white rounded-xl font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-xs mt-2"
           >
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
-            <span>Sign Up Free</span>
+            <span>Sign Up & Start Learning</span>
           </button>
         </form>
 
-        <div className="pt-2 text-center border-t border-stone-100 text-xs text-stone-500">
-          Already have an account?{" "}
-          <Link to="/auth/sign-in" className="font-bold text-emerald-800 hover:underline">
-            Sign in
-          </Link>
+        <div className="pt-2 text-center space-y-2 border-t border-stone-100 text-xs text-stone-500">
+          <p>
+            Already have an account?{" "}
+            <Link
+              to={redirectTo !== "/" ? `/auth/sign-in?redirectTo=${encodeURIComponent(redirectTo)}` : "/auth/sign-in"}
+              className="font-bold text-emerald-800 hover:underline"
+            >
+              Sign In
+            </Link>
+          </p>
+          <p>
+            Are you an administrator?{" "}
+            <Link to="/admin/login" className="font-bold text-stone-700 hover:underline">
+              Admin Portal
+            </Link>
+          </p>
         </div>
       </div>
     </div>
   )
 }
-

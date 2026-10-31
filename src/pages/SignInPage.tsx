@@ -1,7 +1,7 @@
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { Link, useNavigate, useLocation } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
-import { LogIn, Mail, Lock, AlertCircle, Loader2, ArrowRight } from "lucide-react"
+import { LogIn, Mail, Lock, AlertCircle, Loader2, KeyRound } from "lucide-react"
 
 export default function SignInPage() {
   const navigate = useNavigate()
@@ -13,17 +13,19 @@ export default function SignInPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Redirect if already logged in
-  if (currentUser) {
-    if (currentUser.role === 1 || currentUser.role === 2) {
-      navigate("/admin", { replace: true })
-    } else {
-      navigate("/", { replace: true })
-    }
-  }
-
   const queryParams = new URLSearchParams(location.search)
   const redirectTo = queryParams.get("redirectTo") || "/"
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (currentUser) {
+      if (currentUser.role === 1 || currentUser.role === 2) {
+        navigate("/admin", { replace: true })
+      } else {
+        navigate(redirectTo, { replace: true })
+      }
+    }
+  }, [currentUser, navigate, redirectTo])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -47,8 +49,15 @@ export default function SignInPage() {
             <LogIn className="w-6 h-6" />
           </div>
           <h1 className="text-2xl font-black text-stone-900 tracking-tight">Student Sign In</h1>
-          <p className="text-xs text-stone-500">Sign in to track completed classes and ask your AI Tutor.</p>
+          <p className="text-xs text-stone-500">Sign in to access daily classes, your AI Tutor, and study notes.</p>
         </div>
+
+        {redirectTo !== "/" && (
+          <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-center gap-2">
+            <KeyRound className="w-4 h-4 shrink-0 text-emerald-600" />
+            <span>Please sign in or create a free account to continue learning.</span>
+          </div>
+        )}
 
         {error && (
           <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center gap-2">
@@ -101,7 +110,10 @@ export default function SignInPage() {
         <div className="pt-2 text-center space-y-2 border-t border-stone-100 text-xs text-stone-500">
           <p>
             Don&apos;t have an account?{" "}
-            <Link to="/auth/sign-up" className="font-bold text-emerald-800 hover:underline">
+            <Link
+              to={redirectTo !== "/" ? `/auth/sign-up?redirectTo=${encodeURIComponent(redirectTo)}` : "/auth/sign-up"}
+              className="font-bold text-emerald-800 hover:underline"
+            >
               Create an account free
             </Link>
           </p>
@@ -116,4 +128,3 @@ export default function SignInPage() {
     </div>
   )
 }
-

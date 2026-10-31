@@ -36,65 +36,67 @@ export default function Navbar() {
             </Link>
 
             {/* Desktop Navigation Links */}
-            <nav className="hidden md:flex items-center gap-1 pl-4 border-l border-stone-200">
-              {isAdmin && (
+            {currentUser && (
+              <nav className="hidden md:flex items-center gap-1 pl-4 border-l border-stone-200">
+                {isAdmin && (
+                  <Link
+                    to="/admin"
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-stone-900 text-white hover:bg-stone-800 transition flex items-center gap-1.5 shadow-2xs mr-2"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Admin Panel</span>
+                  </Link>
+                )}
+
                 <Link
-                  to="/admin"
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-stone-900 text-white hover:bg-stone-800 transition flex items-center gap-1.5 shadow-2xs mr-2"
+                  to="/"
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                    isActive("/")
+                      ? "bg-emerald-50 text-emerald-800"
+                      : "text-stone-600 hover:text-stone-900 hover:bg-stone-50"
+                  }`}
                 >
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Admin Panel</span>
+                  <Home className="w-3.5 h-3.5" />
+                  <span>Home</span>
                 </Link>
-              )}
 
-              <Link
-                to="/"
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-                  isActive("/")
-                    ? "bg-emerald-50 text-emerald-800"
-                    : "text-stone-600 hover:text-stone-900 hover:bg-stone-50"
-                }`}
-              >
-                <Home className="w-3.5 h-3.5" />
-                <span>Home</span>
-              </Link>
+                <Link
+                  to="/topics"
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                    isActive("/topics")
+                      ? "bg-emerald-50 text-emerald-800"
+                      : "text-stone-600 hover:text-stone-900 hover:bg-stone-50"
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Foundational Topics</span>
+                </Link>
 
-              <Link
-                to="/topics"
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-                  isActive("/topics")
-                    ? "bg-emerald-50 text-emerald-800"
-                    : "text-stone-600 hover:text-stone-900 hover:bg-stone-50"
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Foundational Topics</span>
-              </Link>
+                <Link
+                  to="/lessons"
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                    isActive("/lessons")
+                      ? "bg-emerald-50 text-emerald-800"
+                      : "text-stone-600 hover:text-stone-900 hover:bg-stone-50"
+                  }`}
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>Daily Classes</span>
+                </Link>
 
-              <Link
-                to="/lessons"
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-                  isActive("/lessons")
-                    ? "bg-emerald-50 text-emerald-800"
-                    : "text-stone-600 hover:text-stone-900 hover:bg-stone-50"
-                }`}
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>Daily Classes</span>
-              </Link>
-
-              <Link
-                to="/notes"
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-                  isActive("/notes")
-                    ? "bg-emerald-50 text-emerald-800"
-                    : "text-stone-600 hover:text-stone-900 hover:bg-stone-50"
-                }`}
-              >
-                <FileText className="w-3.5 h-3.5" />
-                <span>My Notes</span>
-              </Link>
-            </nav>
+                <Link
+                  to="/notes"
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                    isActive("/notes")
+                      ? "bg-emerald-50 text-emerald-800"
+                      : "text-stone-600 hover:text-stone-900 hover:bg-stone-50"
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>My Notes</span>
+                </Link>
+              </nav>
+            )}
           </div>
 
           {/* User controls */}

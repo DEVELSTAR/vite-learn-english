@@ -1,9 +1,10 @@
 import React from "react"
-import { Routes, Route, Navigate } from "react-router-dom"
-import { AuthProvider } from "./context/AuthContext"
+import { Routes, Route, Navigate, useLocation } from "react-router-dom"
+import { AuthProvider, useAuth } from "./context/AuthContext"
 import Navbar from "./components/Navbar"
 import Footer from "./components/Footer"
 import SetupBanner from "./components/SetupBanner"
+import { Loader2 } from "lucide-react"
 
 // Pages
 import HomePage from "./pages/HomePage"
@@ -23,42 +24,118 @@ import EditLessonPage from "./pages/admin/EditLessonPage"
 import AdminStudentsPage from "./pages/admin/AdminStudentsPage"
 import AdminAdminsPage from "./pages/admin/AdminAdminsPage"
 
-export default function App() {
-  return (
-    <AuthProvider>
-      <div className="min-h-screen flex flex-col justify-between selection:bg-emerald-200 selection:text-emerald-900">
-        <div>
-          <SetupBanner />
-          <Navbar />
-          <Routes>
-            {/* Public Student Routes */}
-            <Route path="/" element={<HomePage />} />
-            <Route path="/lessons" element={<LessonsPage />} />
-            <Route path="/topics" element={<TopicsPage />} />
-            <Route path="/lessons/:slug" element={<LessonDetailPage />} />
-            <Route path="/topics/:slug" element={<LessonDetailPage />} />
-            <Route path="/notes" element={<NotesPage />} />
-            <Route path="/auth/sign-in" element={<SignInPage />} />
-            <Route path="/auth/sign-up" element={<SignUpPage />} />
+// Route Guard: Requires student or admin to be signed in
+function ProtectedRoute({ children }: { children: React.ReactElement }) {
+  const { currentUser, isLoading } = useAuth()
+  const location = useLocation()
 
-            {/* Admin Dedicated Routes */}
-            <Route path="/admin" element={<AdminLayout />}>
-              <Route path="login" element={<AdminLoginPage />} />
-              <Route index element={<AdminDashboardPage />} />
-              <Route path="lessons/new" element={<NewLessonPage />} />
-              <Route path="lessons/:id/edit" element={<EditLessonPage />} />
-              <Route path="students" element={<AdminStudentsPage />} />
-              <Route path="admins" element={<AdminAdminsPage />} />
-            </Route>
-
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+  if (isLoading) {
+    return (
+      <div className="min-h-[65vh] flex flex-col items-center justify-center space-y-3 text-stone-500">
+        <div className="w-10 h-10 rounded-2xl bg-emerald-800 text-white flex items-center justify-center font-bold text-sm shadow-md animate-pulse">
+          LE
         </div>
-
-        <Footer />
+        <div className="flex items-center gap-2 text-xs font-semibold">
+          <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+          <span>Verifying session...</span>
+        </div>
       </div>
-    </AuthProvider>
+    )
+  }
+
+  if (!currentUser) {
+    const returnUrl = encodeURIComponent(location.pathname + location.search)
+    return <Navigate to={`/auth/sign-in?redirectTo=${returnUrl}`} replace />
+  }
+
+  return children
+}
+
+function AppContent() {
+  return (
+    <div className="min-h-screen flex flex-col justify-between selection:bg-emerald-200 selection:text-emerald-900">
+      <div>
+        <SetupBanner />
+        <Navbar />
+        <Routes>
+          {/* Public Auth Routes */}
+          <Route path="/auth/sign-in" element={<SignInPage />} />
+          <Route path="/auth/sign-up" element={<SignUpPage />} />
+
+          {/* Protected Student Routes (Require Login / Signup) */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <HomePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lessons"
+            element={
+              <ProtectedRoute>
+                <LessonsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/topics"
+            element={
+              <ProtectedRoute>
+                <TopicsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lessons/:slug"
+            element={
+              <ProtectedRoute>
+                <LessonDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/topics/:slug"
+            element={
+              <ProtectedRoute>
+                <LessonDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/notes"
+            element={
+              <ProtectedRoute>
+                <NotesPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin Dedicated Routes (Protected by AdminLayout) */}
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route path="login" element={<AdminLoginPage />} />
+            <Route index element={<AdminDashboardPage />} />
+            <Route path="lessons/new" element={<NewLessonPage />} />
+            <Route path="lessons/:id/edit" element={<EditLessonPage />} />
+            <Route path="students" element={<AdminStudentsPage />} />
+            <Route path="admins" element={<AdminAdminsPage />} />
+          </Route>
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+
+      <Footer />
+    </div>
   )
 }
 
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  )
+}
