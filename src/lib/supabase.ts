@@ -2,8 +2,14 @@ import { createClient } from "@supabase/supabase-js"
 import { Lesson, User, LessonComment, Note, LessonChatMessage, LessonCompletion } from "../types/database"
 import { MOCK_LESSONS, MOCK_USERS } from "./mockData"
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || ""
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ""
+export function normalizeSupabaseUrl(rawUrl?: string): string {
+  if (!rawUrl) return ""
+  return rawUrl.trim().replace(/\/rest\/v1\/?$/, "").replace(/\/+$/, "")
+}
+
+const rawUrl = import.meta.env.VITE_SUPABASE_URL || ""
+export const supabaseUrl = normalizeSupabaseUrl(rawUrl)
+export const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim()
 
 export const isSupabaseConfigured = Boolean(
   supabaseUrl &&

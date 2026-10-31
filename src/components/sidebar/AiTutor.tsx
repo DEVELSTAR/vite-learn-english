@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from "react"
-import { GoogleGenerativeAI } from "@google/generative-ai"
 import { Send, Bot, User, Sparkles, AlertCircle, Loader2 } from "lucide-react"
 import { Lesson } from "../../types/database"
 import { useAuth } from "../../context/AuthContext"
 import { fetchLessonChatMessages, saveLessonChatMessage } from "../../lib/supabase"
+import { sendGeminiChatMessage, ChatMessage } from "../../lib/gemini"
 
 interface Message {
   role: "user" | "model"
@@ -72,27 +72,18 @@ export default function AiTutor({ lesson }: AiTutorProps) {
         return
       }
 
-      const genAI = new GoogleGenerativeAI(apiKey)
-      const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
-        systemInstruction: `You are "Akib Sir", a friendly, patient, and highly practical AI English Tutor for Indian learners speaking Hindi/Urdu.
+      const systemInstruction = `You are "Akib Sir", a friendly, patient, and highly practical AI English Tutor for Indian learners speaking Hindi/Urdu.
 The current lesson is titled "${lesson.title}".
 Lesson Introduction: "${lesson.introduction || "General English Practice"}".
 Lesson Content Summary: "${lesson.content ? lesson.content.replace(/<[^>]*>/g, "").slice(0, 800) : "Learn English daily."}".
-Always provide concise, encouraging, and clear explanations. Use Hinglish sparingly to clarify difficult points, but encourage the student to think in English. Keep answers engaging and under 4-5 sentences when possible.`,
+Always provide concise, encouraging, and clear explanations. Use Hinglish sparingly to clarify difficult points, but encourage the student to think in English. Keep answers engaging and under 4-5 sentences when possible.`
+
+      const { reply } = await sendGeminiChatMessage({
+        apiKey,
+        messages,
+        userMessage: textToSend,
+        systemInstruction,
       })
-
-      const historyFormatted = messages.map((m) => ({
-        role: m.role === "model" ? "model" : "user",
-        parts: [{ text: m.content }],
-      }))
-
-      const chat = model.startChat({
-        history: historyFormatted,
-      })
-
-      const result = await chat.sendMessage(textToSend)
-      const reply = result.response.text()
 
       setMessages((prev) => [...prev, { role: "model", content: reply }])
 
