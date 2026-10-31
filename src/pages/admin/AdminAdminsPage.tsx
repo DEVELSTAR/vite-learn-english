@@ -4,3 +4,4 @@ import AdminManager from "../../components/admin/AdminManager"
 export default function AdminAdminsPage() {
   return <AdminManager />
 }
+

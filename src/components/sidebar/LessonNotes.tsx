@@ -155,3 +155,4 @@ export default function LessonNotes({ lesson, onNotesCountChange }: LessonNotesP
     </div>
   )
 }
+

@@ -194,3 +194,4 @@ export default function ChatRoom({ lesson, onCommentCountChange }: ChatRoomProps
     </div>
   )
 }
+

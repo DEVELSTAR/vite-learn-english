@@ -136,3 +136,4 @@ export const MOCK_LESSONS: Lesson[] = [
     updated_at: new Date().toISOString(),
   },
 ]
+

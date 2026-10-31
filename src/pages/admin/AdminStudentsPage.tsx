@@ -4,3 +4,4 @@ import StudentManager from "../../components/admin/StudentManager"
 export default function AdminStudentsPage() {
   return <StudentManager />
 }
+

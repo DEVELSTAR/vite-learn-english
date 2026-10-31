@@ -71,3 +71,4 @@ export default function EditLessonPage() {
 
   return <LessonForm initialLesson={lesson} isEditing={true} />
 }
+
