@@ -1,54 +1,45 @@
-# Learn English — Daily Hinglish & Concept Clarity
+# Learn English - Daily Hinglish to Fluent English (Vite + React)
 
-A modern, 100% free-tier web application built to make English learning intuitive and natural for Hinglish speakers.
-
-## Tech Stack (100% Free Tier)
-
-| Layer | Technology | Platform |
-| :--- | :--- | :--- |
-| **Frontend UI** | Next.js 15 (React 19 + Tailwind CSS) | **Vercel** |
-| **Backend API** | Node.js / TypeScript Server Actions & Routes | **Vercel Serverless** |
-| **Database** | PostgreSQL + Realtime WebSockets | **Supabase** |
-| **AI Tutor** | Google Gemini 1.5 Flash (`@google/generative-ai`) | **Vercel Edge / API** |
-
----
+A lightning-fast web application designed to help learners in India bridge the gap between spoken Hindi/Hinglish and natural, confident English. Built as a Single-Page Application with **Vite, React, TypeScript, Tailwind CSS**, and powered by **PostgreSQL (Supabase)** and **Google Gemini 1.5 Flash**.
 
 ## Features
 
-- **Daily English Classes & Foundational Topics**: Concept-first lessons breaking down common Hinglish translation mistakes into natural English.
-- **Interactive Collapsible Tools Dock**:
-  - **Desktop/Laptop**: Starts maximized by default, minimizes to a slim 56px dock, re-expands with `<` or tool icons.
-  - **Mobile**: Floating movable action button (drag anywhere), 1-tap direct drawer access.
-- **Akib Sir AI English Tutor**: Hinglish doubt-solving tutor powered by Gemini 1.5 Flash.
-- **Realtime Classroom Chatroom**: Live WebSocket messaging per class powered by Supabase Realtime.
-- **Class & Topic Notes**: Community study notes with instant submission and live updates.
-- **Custom Admin Control Panel (`/admin`)**: ActiveAdmin-styled slate/navy dashboard for lesson CRUD and student management.
-
----
+- **Daily Speaking Classes & Foundational Curriculum**:
+  - Filter classes by date and category.
+  - Step-by-step foundational grammar topics.
+- **Permanently Open 3-in-1 Study Sidebar**:
+  - **AI Tutor ("Ask Akib Sir")**: Real-time answers, examples, and tests via Google Gemini 1.5 Flash.
+  - **Community Discussion**: Threaded questions and sentence sharing on `lesson_comments`.
+  - **Personal Notes**: Private vocabulary and rule capture synced to `notes`.
+  - *Layout*: Desktop right sidebar column, mobile bottom section (never blocks or minimizes!).
+- **Progress Tracking**:
+  - "Mark as Complete" and "Needs Revision" indicators synced to `lesson_completions`.
+- **Dedicated Admin Control Center**:
+  - Dedicated authentication at `/admin/login`.
+  - CRUD for Daily Classes & Topics (with rich body stored in `action_text_rich_texts`).
+  - Student Management (`users` table, `role: 0`).
+  - Admin Management (exclusive to Super Admin `role: 2`, `star@gmail.com`).
 
 ## Getting Started
 
-### 1. Install Dependencies
-```bash
-cd web
-npm install
-```
+1. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+2. **Configure Environment**:
+   Copy `.env.example` to `.env` and fill in your Supabase & Gemini keys:
+   ```bash
+   cp .env.example .env
+   ```
+3. **Run Dev Server**:
+   ```bash
+   npm run dev
+   ```
+4. **Build for Production**:
+   ```bash
+   npm run build
+   ```
 
-### 2. Configure Environment Variables
-Copy `web/.env.example` to `web/.env.local`:
-```bash
-cp web/.env.example web/.env.local
-```
-Fill in:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `DATABASE_URL`
-- `GEMINI_API_KEY`
+## Deploying to Vercel
 
-### 3. Run Development Server
-```bash
-cd web
-npm run dev
-```
-Open [http://localhost:3000](http://localhost:3000) (or 3001) in your browser.
+Push the project to GitHub and import it on Vercel. Vercel automatically detects the **Vite** preset and uses the provided `vercel.json` SPA rewrite rules.

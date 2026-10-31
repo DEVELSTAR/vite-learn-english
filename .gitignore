@@ -1,36 +1,33 @@
-# Dependencies
-node_modules/
-/.pnp
-.pnp.*
-
-# Testing
-/coverage
-
-# Next.js
-/.next/
-/out/
-web/.next/
-web/out/
-web/node_modules/
-
-# Production
-/build
-
-# Misc
-.DS_Store
-*.pem
+# Logs
+logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
 # Environment variables
-.env*.local
 .env
-web/.env*.local
-!web/.env.example
+.env.local
+.env.*.local
+!.env.example
 
 # Vercel
 .vercel
-web/.vercel
-
-# TypeScript
-*.tsbuildinfo
-next-env.d.ts
