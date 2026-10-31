@@ -1,6 +1,6 @@
 import React from "react"
 import { Link } from "react-router-dom"
-import { ShieldCheck, Heart } from "lucide-react"
+import { Heart } from "lucide-react"
 
 export default function Footer() {
   return (
@@ -28,13 +28,6 @@ export default function Footer() {
           </Link>
           <Link to="/notes" className="hover:text-stone-900 transition">
             Notes
-          </Link>
-          <Link
-            to="/admin/login"
-            className="flex items-center gap-1 font-semibold text-emerald-800 hover:text-emerald-950 transition"
-          >
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Admin Sign In</span>
           </Link>
         </div>
       </div>

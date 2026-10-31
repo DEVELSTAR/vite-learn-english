@@ -124,7 +124,7 @@ export default function SignUpPage() {
           </button>
         </form>
 
-        <div className="pt-2 text-center space-y-2 border-t border-stone-100 text-xs text-stone-500">
+        <div className="pt-2 text-center border-t border-stone-100 text-xs text-stone-500">
           <p>
             Already have an account?{" "}
             <Link
@@ -132,12 +132,6 @@ export default function SignUpPage() {
               className="font-bold text-emerald-800 hover:underline"
             >
               Sign In
-            </Link>
-          </p>
-          <p>
-            Are you an administrator?{" "}
-            <Link to="/admin/login" className="font-bold text-stone-700 hover:underline">
-              Admin Portal
             </Link>
           </p>
         </div>
