@@ -15,6 +15,38 @@ export interface NotificationItem {
 }
 
 const LOCAL_STORAGE_KEY = "learn_english_notifications"
+const READ_IDS_KEY = "learn_english_read_notif_ids"
+
+// Persistent set of IDs of notifications marked as read
+function getReadNotificationIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(READ_IDS_KEY)
+    if (!raw) return new Set()
+    return new Set(JSON.parse(raw))
+  } catch {
+    return new Set()
+  }
+}
+
+function saveReadNotificationId(id: string) {
+  try {
+    const set = getReadNotificationIds()
+    set.add(id)
+    localStorage.setItem(READ_IDS_KEY, JSON.stringify(Array.from(set).slice(-500)))
+  } catch {
+    // ignore
+  }
+}
+
+function saveReadNotificationIds(ids: string[]) {
+  try {
+    const set = getReadNotificationIds()
+    ids.forEach((id) => set.add(id))
+    localStorage.setItem(READ_IDS_KEY, JSON.stringify(Array.from(set).slice(-500)))
+  } catch {
+    // ignore
+  }
+}
 
 // 1. Multi-Tab BroadcastChannel
 let notifBc: BroadcastChannel | null = null
@@ -22,8 +54,15 @@ try {
   if (typeof BroadcastChannel !== "undefined") {
     notifBc = new BroadcastChannel("learn_english_notifications_channel")
     notifBc.onmessage = (event) => {
-      if (event.data?.type === "notification_received" && event.data.notification) {
-        addLocalNotificationItem(event.data.notification, false)
+      const data = event.data
+      if (data?.type === "notification_received" && data.notification) {
+        addLocalNotificationItem(data.notification, false)
+      } else if (data?.type === "notification_read" && data.id) {
+        markNotificationAsRead(data.id, data.userId, false)
+      } else if (data?.type === "all_notifications_read" && data.userId) {
+        markAllNotificationsAsRead(data.userId, false)
+      } else if (data?.type === "clear_notifications" && data.userId) {
+        clearUserNotifications(data.userId, false)
       }
     }
   }
@@ -70,8 +109,25 @@ function saveLocalNotifications(items: NotificationItem[], shouldBroadcast = tru
 
 function addLocalNotificationItem(item: NotificationItem, broadcast = true) {
   const current = getLocalNotifications()
+  const readIds = getReadNotificationIds()
+
+  // If this item was previously marked as read, preserve read: true
+  if (readIds.has(item.id)) {
+    item.read = true
+  }
+
   // Avoid duplicate notifications by id
-  if (current.some((n) => n.id === item.id)) return
+  const existingIdx = current.findIndex((n) => n.id === item.id)
+  if (existingIdx > -1) {
+    // If it exists, keep the read state
+    const existing = current[existingIdx]
+    current[existingIdx] = {
+      ...item,
+      read: existing.read || item.read || readIds.has(item.id),
+    }
+    saveLocalNotifications(current, broadcast)
+    return
+  }
 
   const updated = [item, ...current.slice(0, 99)]
   saveLocalNotifications(updated, broadcast)
@@ -90,8 +146,13 @@ function addLocalNotificationItem(item: NotificationItem, broadcast = true) {
 
 export function getUserNotifications(userId: number): NotificationItem[] {
   const all = getLocalNotifications()
+  const readIds = getReadNotificationIds()
   return all
     .filter((n) => n.recipient_id === userId)
+    .map((n) => ({
+      ...n,
+      read: n.read || readIds.has(n.id),
+    }))
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 }
 
@@ -104,7 +165,7 @@ export async function syncNotificationsFromDatabase(userId: number): Promise<voi
   try {
     const { data, error } = await supabase
       .from("action_text_rich_texts")
-      .select("body, created_at")
+      .select("id, body, created_at")
       .eq("record_type", "Notification")
       .eq("record_id", userId)
       .order("created_at", { ascending: false })
@@ -112,16 +173,29 @@ export async function syncNotificationsFromDatabase(userId: number): Promise<voi
 
     if (!error && data) {
       const current = getLocalNotifications()
-      const existingIds = new Set(current.map((n) => n.id))
-      const fetchedItems: NotificationItem[] = []
+      const readIds = getReadNotificationIds()
+
+      // Map of existing items
+      const mergedMap = new Map<string, NotificationItem>()
+      for (const item of current) {
+        mergedMap.set(item.id, {
+          ...item,
+          read: item.read || readIds.has(item.id),
+        })
+      }
 
       for (const row of data) {
         try {
           if (row.body) {
             const parsed = JSON.parse(row.body) as NotificationItem
-            if (parsed && parsed.id && !existingIds.has(parsed.id)) {
-              fetchedItems.push(parsed)
-              existingIds.add(parsed.id)
+            if (parsed && parsed.id) {
+              const localItem = mergedMap.get(parsed.id)
+              // If marked read locally or in readIds or in DB, ALWAYS KEEP READ: TRUE!
+              const isRead = Boolean(parsed.read || localItem?.read || readIds.has(parsed.id))
+              mergedMap.set(parsed.id, {
+                ...parsed,
+                read: isRead,
+              })
             }
           }
         } catch {
@@ -129,9 +203,11 @@ export async function syncNotificationsFromDatabase(userId: number): Promise<voi
         }
       }
 
-      if (fetchedItems.length > 0) {
-        saveLocalNotifications([...fetchedItems, ...current].slice(0, 100), false)
-      }
+      const mergedList = Array.from(mergedMap.values())
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 100)
+
+      saveLocalNotifications(mergedList, false)
     }
   } catch (e) {
     console.warn("Error syncing notifications from Supabase:", e)
@@ -207,20 +283,140 @@ export async function addReactionNotification(params: {
   }
 }
 
-export function markNotificationAsRead(id: string) {
+export function markNotificationAsRead(id: string, userId?: number, shouldBroadcast = true) {
+  saveReadNotificationId(id)
+
   const all = getLocalNotifications()
   const updated = all.map((n) => (n.id === id ? { ...n, read: true } : n))
   saveLocalNotifications(updated)
+
+  if (shouldBroadcast && notifBc) {
+    try {
+      notifBc.postMessage({ type: "notification_read", id, userId })
+    } catch {
+      // ignore
+    }
+  }
+
+  // Persist read status update to Supabase in background
+  if (isSupabaseConfigured && supabase && userId) {
+    const client = supabase
+    try {
+      client
+        .from("action_text_rich_texts")
+        .select("id, body")
+        .eq("record_type", "Notification")
+        .eq("record_id", userId)
+        .then(({ data }) => {
+          if (data) {
+            for (const row of data) {
+              if (row.body && row.body.includes(id)) {
+                try {
+                  const parsed = JSON.parse(row.body)
+                  if (parsed.id === id && !parsed.read) {
+                    parsed.read = true
+                    client
+                      .from("action_text_rich_texts")
+                      .update({ body: JSON.stringify(parsed), updated_at: new Date().toISOString() })
+                      .eq("id", row.id)
+                      .then(() => {})
+                  }
+                } catch {
+                  // ignore
+                }
+              }
+            }
+          }
+        })
+    } catch {
+      // ignore
+    }
+  }
 }
 
-export function markAllNotificationsAsRead(userId: number) {
+export function markAllNotificationsAsRead(userId: number, shouldBroadcast = true) {
   const all = getLocalNotifications()
-  const updated = all.map((n) => (n.recipient_id === userId ? { ...n, read: true } : n))
+  const readIds: string[] = []
+
+  const updated = all.map((n) => {
+    if (n.recipient_id === userId) {
+      readIds.push(n.id)
+      return { ...n, read: true }
+    }
+    return n
+  })
+
+  saveReadNotificationIds(readIds)
   saveLocalNotifications(updated)
+
+  if (shouldBroadcast && notifBc) {
+    try {
+      notifBc.postMessage({ type: "all_notifications_read", userId })
+    } catch {
+      // ignore
+    }
+  }
+
+  // Persist mark all read update to Supabase in background
+  if (isSupabaseConfigured && supabase && userId) {
+    const client = supabase
+    try {
+      client
+        .from("action_text_rich_texts")
+        .select("id, body")
+        .eq("record_type", "Notification")
+        .eq("record_id", userId)
+        .then(({ data }) => {
+          if (data) {
+            for (const row of data) {
+              if (row.body) {
+                try {
+                  const parsed = JSON.parse(row.body)
+                  if (!parsed.read) {
+                    parsed.read = true
+                    client
+                      .from("action_text_rich_texts")
+                      .update({ body: JSON.stringify(parsed), updated_at: new Date().toISOString() })
+                      .eq("id", row.id)
+                      .then(() => {})
+                  }
+                } catch {
+                  // ignore
+                }
+              }
+            }
+          }
+        })
+    } catch {
+      // ignore
+    }
+  }
 }
 
-export function clearUserNotifications(userId: number) {
+export function clearUserNotifications(userId: number, shouldBroadcast = true) {
   const all = getLocalNotifications()
   const filtered = all.filter((n) => n.recipient_id !== userId)
   saveLocalNotifications(filtered)
+
+  if (shouldBroadcast && notifBc) {
+    try {
+      notifBc.postMessage({ type: "clear_notifications", userId })
+    } catch {
+      // ignore
+    }
+  }
+
+  // Delete from Supabase in background
+  if (isSupabaseConfigured && supabase && userId) {
+    try {
+      supabase
+        .from("action_text_rich_texts")
+        .delete()
+        .eq("record_type", "Notification")
+        .eq("record_id", userId)
+        .then(() => {})
+    } catch {
+      // ignore
+    }
+  }
 }

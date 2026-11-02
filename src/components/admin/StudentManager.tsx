@@ -302,19 +302,9 @@ export default function StudentManager() {
               </div>
 
               <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <label className="font-bold text-stone-700">
-                    {editingStudent ? "Student Password" : "Password (min 6 chars)"}
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowModalPassword(!showModalPassword)}
-                    className="text-[11px] text-stone-500 hover:text-stone-800 flex items-center gap-1 cursor-pointer"
-                  >
-                    {showModalPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                    <span>{showModalPassword ? "Hide" : "Show"}</span>
-                  </button>
-                </div>
+                <label className="font-bold text-stone-700">
+                  {editingStudent ? "Student Password" : "Password (min 6 chars)"}
+                </label>
                 <div className="relative">
                   <input
                     type={showModalPassword ? "text" : "password"}

@@ -243,7 +243,7 @@ export default function Navbar() {
                         notifications.map((notif) => (
                           <div
                             key={notif.id}
-                            onClick={() => markNotificationAsRead(notif.id)}
+                            onClick={() => markNotificationAsRead(notif.id, currentUser?.id)}
                             className={`p-3 text-xs flex items-start gap-2.5 transition cursor-pointer hover:bg-stone-50 ${
                               notif.read ? "bg-white text-stone-600" : "bg-emerald-50/40 text-stone-900 font-medium"
                             }`}
