@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react"
-import { Send, Bot, User, Sparkles, AlertCircle, Loader2, Pencil, Trash2, Check, X, RotateCcw } from "lucide-react"
+import { Send, Bot, User, Sparkles, AlertCircle, Loader2, Pencil, Trash2, Check, X, RotateCcw, Menu, ChevronDown, BookOpen } from "lucide-react"
 import { Lesson } from "../../types/database"
 import { useAuth } from "../../context/AuthContext"
 import {
@@ -22,6 +22,59 @@ interface Message {
 interface AiTutorProps {
   lesson: Lesson
 }
+
+interface PromptOption {
+  icon: string
+  title: string
+  description: string
+  promptText: string
+  actionType: "send" | "input"
+}
+
+const QUICK_PROMPTS: PromptOption[] = [
+  {
+    icon: "✍️",
+    title: "Correct sentence",
+    description: "Paste your sentence to check grammar and natural phrasing",
+    promptText: "Check my sentence: ",
+    actionType: "input",
+  },
+  {
+    icon: "💡",
+    title: "Simpler Hinglish",
+    description: "Explain this lesson's key concepts with fresh everyday analogies",
+    promptText: "Can you explain this lesson in simpler Hinglish with a fresh analogy?",
+    actionType: "send",
+  },
+  {
+    icon: "🗣️",
+    title: "Real-life examples",
+    description: "2 natural sentences used in Indian workplace or daily life",
+    promptText: "Give me 2 natural everyday sentences using these words in Indian workplace or daily life.",
+    actionType: "send",
+  },
+  {
+    icon: "🎯",
+    title: "Quiz me",
+    description: "Test your comprehension with 1 fill-in-the-blank question",
+    promptText: "Ask me 1 quick fill-in-the-blank question to test my understanding of this lesson.",
+    actionType: "send",
+  },
+  {
+    icon: "📖",
+    title: "Key Vocabulary",
+    description: "Meanings and usage of difficult words in this lesson",
+    promptText: "Explain the key vocabulary, phrasal verbs, and idioms from this lesson with easy Hindi meanings and examples.",
+    actionType: "send",
+  },
+  {
+    icon: "💬",
+    title: "Practice Dialogue",
+    description: "Start a short conversational roleplay with Akib Sir",
+    promptText: "Let's do a 5-turn conversational roleplay using phrases from this lesson. You start first!",
+    actionType: "send",
+  },
+]
 
 function buildSystemPrompt(lesson: Lesson, userName: string): string {
   const typeLabel = lesson.lesson_type === 1 ? "Topic" : "Daily Class"
@@ -72,6 +125,10 @@ export default function AiTutor({ lesson }: AiTutorProps) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null)
   const [editInput, setEditInput] = useState("")
   const [isUpdating, setIsUpdating] = useState(false)
+
+  // Prompts menu / hamburger state
+  const [showPromptsMenu, setShowPromptsMenu] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY || ""
 
@@ -263,34 +320,126 @@ export default function AiTutor({ lesson }: AiTutorProps) {
     }
   }
 
+  const handleSelectPrompt = (opt: PromptOption) => {
+    setShowPromptsMenu(false)
+    if (opt.actionType === "input") {
+      setInput(opt.promptText)
+      setTimeout(() => {
+        inputRef.current?.focus()
+      }, 60)
+    } else {
+      handleSend(undefined, opt.promptText)
+    }
+  }
+
   return (
     <div className="flex flex-col h-[480px] lg:h-[520px]">
-      {/* Header bar */}
-      <div className="p-3 bg-emerald-900/5 border-b border-emerald-900/10 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-emerald-700 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-            ✨
-          </div>
-          <div>
-            <span className="text-xs font-bold text-stone-900 block leading-tight">Ask Akib Sir (AI Tutor)</span>
-            <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              Gemini Flash &bull; 24/7 Hinglish Feedback
-            </span>
+      {/* Header bar with Hamburger on Top Left */}
+      <div className="p-2.5 sm:p-3 bg-emerald-900/5 border-b border-emerald-900/10 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          {/* Hamburger / Prompts Toggle Button on Top Left */}
+          <button
+            type="button"
+            onClick={() => setShowPromptsMenu(!showPromptsMenu)}
+            className={`p-1.5 rounded-lg border transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
+              showPromptsMenu
+                ? "bg-emerald-800 text-white border-emerald-800 shadow-2xs"
+                : "bg-white text-stone-700 border-stone-200 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300"
+            }`}
+            title={showPromptsMenu ? "Hide Prompts" : "Open Quick Prompts"}
+            aria-label="Toggle Quick Prompts"
+          >
+            {showPromptsMenu ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+            <span className="text-[11px] font-bold">Prompts</span>
+          </button>
+
+          <div className="flex items-center gap-1.5 min-w-0">
+            <div className="w-6 h-6 rounded-lg bg-emerald-700 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+              ✨
+            </div>
+            <div className="min-w-0">
+              <span className="text-xs font-bold text-stone-900 block leading-tight truncate">
+                Ask Akib Sir
+              </span>
+              <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1 truncate">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                Hinglish AI Tutor
+              </span>
+            </div>
           </div>
         </div>
 
-        {messages.length > 0 && (
+        <div className="flex items-center gap-1 shrink-0">
+          {messages.length > 0 && (
+            <button
+              type="button"
+              onClick={handleClearHistory}
+              className="text-[11px] text-stone-400 hover:text-red-600 transition flex items-center gap-1 px-2 py-1 rounded-md hover:bg-stone-100 cursor-pointer"
+              title="Clear conversation"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span className="hidden sm:inline">Reset</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Hamburger Dropdown / Prompts Drawer (Opened via Top-Left Hamburger) */}
+      {showPromptsMenu && (
+        <div className="p-3 bg-stone-50 border-b border-stone-200 space-y-2 animate-in slide-in-from-top-2 duration-150 z-20">
+          <div className="flex items-center justify-between text-xs font-bold text-stone-800">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Choose a Practice Prompt</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPromptsMenu(false)}
+              className="text-stone-400 hover:text-stone-700 p-0.5 rounded cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            {QUICK_PROMPTS.map((opt, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => handleSelectPrompt(opt)}
+                className="text-left p-2.5 bg-white border border-stone-200 hover:border-emerald-600/60 hover:bg-emerald-50/60 rounded-xl transition cursor-pointer shadow-2xs group flex items-start gap-2"
+              >
+                <span className="text-base shrink-0 leading-none mt-0.5">{opt.icon}</span>
+                <div className="min-w-0">
+                  <span className="font-bold text-stone-900 group-hover:text-emerald-800 block text-xs leading-snug">
+                    {opt.title}
+                  </span>
+                  <span className="text-[10px] text-stone-500 block leading-tight mt-0.5">
+                    {opt.description}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Top Left Prompts Quick-Chips Bar */}
+      <div className="flex items-center gap-1.5 overflow-x-auto px-2.5 py-1.5 scrollbar-none text-[11px] border-b border-stone-100 bg-stone-50/70 shrink-0">
+        <span className="text-stone-400 font-bold whitespace-nowrap text-[10px] uppercase tracking-wider pl-0.5">
+          Prompts:
+        </span>
+        {QUICK_PROMPTS.map((opt, i) => (
           <button
+            key={i}
             type="button"
-            onClick={handleClearHistory}
-            className="text-[11px] text-stone-400 hover:text-red-600 transition flex items-center gap-1 px-2 py-1 rounded-md hover:bg-stone-100 cursor-pointer"
-            title="Clear conversation"
+            onClick={() => handleSelectPrompt(opt)}
+            className="px-2.5 py-1 bg-white hover:bg-emerald-50 hover:text-emerald-900 hover:border-emerald-300 text-stone-700 rounded-full font-medium whitespace-nowrap transition cursor-pointer border border-stone-200 text-[11px] shadow-2xs shrink-0 flex items-center gap-1"
           >
-            <RotateCcw className="w-3 h-3" />
-            <span>Reset</span>
+            <span>{opt.icon}</span>
+            <span>{opt.title}</span>
           </button>
-        )}
+        ))}
       </div>
 
       {/* Messages Scroll Area */}
@@ -437,44 +586,10 @@ export default function AiTutor({ lesson }: AiTutorProps) {
         )}
       </div>
 
-      {/* Quick Prompts Chips from reference repo */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 px-2.5 pt-2 scrollbar-none text-[11px] border-t border-stone-100 bg-stone-50/70">
-        <span className="text-stone-400 font-semibold whitespace-nowrap text-[10px] uppercase tracking-wider">
-          Quick:
-        </span>
-        <button
-          type="button"
-          onClick={() => setInput("Check my sentence: ")}
-          className="px-2.5 py-1 bg-white hover:bg-stone-100 text-stone-700 rounded-full font-medium whitespace-nowrap transition cursor-pointer border border-stone-200 text-[11px] shadow-2xs"
-        >
-          ✍️ Correct my sentence
-        </button>
-        <button
-          type="button"
-          onClick={() => handleSend(undefined, "Can you explain this lesson in simpler Hinglish with a fresh analogy?")}
-          className="px-2.5 py-1 bg-white hover:bg-stone-100 text-stone-700 rounded-full font-medium whitespace-nowrap transition cursor-pointer border border-stone-200 text-[11px] shadow-2xs"
-        >
-          💡 Simpler Hinglish
-        </button>
-        <button
-          type="button"
-          onClick={() => handleSend(undefined, "Give me 2 natural everyday sentences using these words in Indian workplace or daily life.")}
-          className="px-2.5 py-1 bg-white hover:bg-stone-100 text-stone-700 rounded-full font-medium whitespace-nowrap transition cursor-pointer border border-stone-200 text-[11px] shadow-2xs"
-        >
-          🗣️ Real-life examples
-        </button>
-        <button
-          type="button"
-          onClick={() => handleSend(undefined, "Ask me 1 quick fill-in-the-blank question to test my understanding of this lesson.")}
-          className="px-2.5 py-1 bg-white hover:bg-stone-100 text-stone-700 rounded-full font-medium whitespace-nowrap transition cursor-pointer border border-stone-200 text-[11px] shadow-2xs"
-        >
-          🎯 Quiz me
-        </button>
-      </div>
-
       {/* Input Box */}
       <form onSubmit={(e) => handleSend(e)} className="p-2 border-t border-stone-200 bg-white flex gap-1.5">
         <input
+          ref={inputRef}
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}

@@ -100,17 +100,7 @@ export default function SignUpPage() {
           </div>
 
           <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <label className="font-bold text-stone-700">Password (min 6 characters)</label>
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="text-[11px] text-stone-500 hover:text-stone-800 flex items-center gap-1 cursor-pointer"
-              >
-                {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                <span>{showPassword ? "Hide" : "Show"}</span>
-              </button>
-            </div>
+            <label className="font-bold text-stone-700">Password (min 6 characters)</label>
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
