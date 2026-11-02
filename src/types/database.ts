@@ -88,6 +88,9 @@ export interface Note {
   lesson_id?: number | null
   is_global: boolean
   lesson_title?: string
+  user?: Pick<User, "id" | "name" | "email_address" | "role">
+  lesson?: Pick<Lesson, "id" | "title" | "slug" | "lesson_type"> | null
+  note_shares?: NoteShare[]
 }
 
 export interface NoteShare {
@@ -95,9 +98,11 @@ export interface NoteShare {
   note_id: number
   user_id: number
   can_edit: boolean
-  status: number
+  status: 0 | 1 | 2 // 0: pending, 1: accepted, 2: declined
   created_at: string
   updated_at: string
+  user?: Pick<User, "id" | "name" | "email_address" | "role">
+  note?: Note
 }
 
 export interface LessonBlock {
