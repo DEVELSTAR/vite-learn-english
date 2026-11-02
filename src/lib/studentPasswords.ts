@@ -87,3 +87,31 @@ export async function fetchAllStudentPasswords(): Promise<Record<number, string>
   return result
 }
 
+export async function getStudentPassword(userId: number): Promise<string> {
+  const cached = getCachedStudentPasswords()[userId]
+  if (cached) return cached
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data } = await supabase
+        .from("action_text_rich_texts")
+        .select("body")
+        .eq("record_type", "UserPassword")
+        .eq("record_id", userId)
+        .eq("name", "password")
+        .maybeSingle()
+
+      if (data?.body) {
+        cacheStudentPassword(userId, data.body)
+        return data.body
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const all = await fetchAllStudentPasswords()
+  return all[userId] || ""
+}
+
+

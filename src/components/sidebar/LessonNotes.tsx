@@ -24,25 +24,11 @@ import {
   fetchAvailableStudents,
 } from "../../lib/supabase"
 import ReactionBar from "../common/ReactionBar"
+import { formatTimeAgo } from "../../lib/dateUtils"
 
 interface LessonNotesProps {
   lesson: Lesson
   onNotesCountChange?: (count: number) => void
-}
-
-function formatTimeAgo(isoString?: string): string {
-  if (!isoString) return ""
-  const date = new Date(isoString)
-  const now = new Date()
-  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000)
-  if (diffSec < 60) return "just now"
-  const diffMin = Math.floor(diffSec / 60)
-  if (diffMin < 60) return `${diffMin}m ago`
-  const diffHours = Math.floor(diffMin / 60)
-  if (diffHours < 24) return `${diffHours}h ago`
-  const diffDays = Math.floor(diffHours / 24)
-  if (diffDays < 30) return `${diffDays}d ago`
-  return date.toLocaleDateString()
 }
 
 export default function LessonNotes({ lesson, onNotesCountChange }: LessonNotesProps) {

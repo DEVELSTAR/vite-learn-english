@@ -25,21 +25,7 @@ import {
   clearUserNotifications,
   NotificationItem,
 } from "../lib/notifications"
-
-function formatTimeAgo(isoString?: string): string {
-  if (!isoString) return ""
-  const date = new Date(isoString)
-  const now = new Date()
-  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000)
-  if (diffSec < 60) return "just now"
-  const diffMin = Math.floor(diffSec / 60)
-  if (diffMin < 60) return `${diffMin}m ago`
-  const diffHours = Math.floor(diffMin / 60)
-  if (diffHours < 24) return `${diffHours}h ago`
-  const diffDays = Math.floor(diffHours / 24)
-  if (diffDays < 30) return `${diffDays}d ago`
-  return date.toLocaleDateString()
-}
+import { formatTimeAgo } from "../lib/dateUtils"
 
 export default function Navbar() {
   const { currentUser, isAdmin, logout } = useAuth()
@@ -297,14 +283,29 @@ export default function Navbar() {
 
             {/* Desktop User Info & Sign Out */}
             {currentUser ? (
-              <div className="hidden sm:flex items-center gap-2.5">
-                <span className="text-xs text-stone-700 font-semibold">{currentUser.name}</span>
-                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                  {currentUser.role === 2 ? "Super Admin" : currentUser.role === 1 ? "Admin" : "Student"}
-                </span>
+              <div className="hidden sm:flex items-center gap-2">
+                <Link
+                  to="/profile"
+                  className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition flex items-center gap-1.5 ${
+                    isActive("/profile")
+                      ? "bg-emerald-50 border-emerald-300 text-emerald-800"
+                      : "border-stone-200 hover:bg-stone-50 text-stone-700"
+                  }`}
+                  title="My Profile & Settings"
+                >
+                  <User className="w-3.5 h-3.5 text-emerald-700" />
+                  <span className="font-semibold">{currentUser.name}</span>
+                </Link>
+
+                {currentUser.role !== undefined && (currentUser.role === 1 || currentUser.role === 2) && (
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                    {currentUser.role === 2 ? "Super Admin" : "Admin"}
+                  </span>
+                )}
+
                 <button
                   onClick={logout}
-                  className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-stone-200 hover:bg-stone-100 text-stone-700 transition flex items-center gap-1.5 cursor-pointer ml-1"
+                  className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-stone-200 hover:bg-stone-100 text-stone-600 transition flex items-center gap-1.5 cursor-pointer ml-1"
                   title="Sign out of student account"
                 >
                   <LogOut className="w-3.5 h-3.5" />
@@ -345,7 +346,10 @@ export default function Navbar() {
         {mobileMenuOpen && (
           <div className="md:hidden py-3 border-t border-stone-200 space-y-2 animate-in slide-in-from-top-2 duration-150">
             {currentUser && (
-              <div className="px-3 py-2 bg-stone-50 rounded-xl flex items-center justify-between text-xs">
+              <Link
+                to="/profile"
+                className="px-3 py-2 bg-stone-50 hover:bg-stone-100 rounded-xl flex items-center justify-between text-xs transition"
+              >
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-full bg-emerald-800 text-white font-bold flex items-center justify-center text-xs">
                     {currentUser.name.charAt(0).toUpperCase()}
@@ -355,10 +359,15 @@ export default function Navbar() {
                     <span className="text-[10px] text-stone-500 font-mono">{currentUser.email_address}</span>
                   </div>
                 </div>
-                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                  {currentUser.role === 2 ? "Super Admin" : currentUser.role === 1 ? "Admin" : "Student"}
-                </span>
-              </div>
+                <div className="flex items-center gap-1.5">
+                  {currentUser.role !== undefined && (currentUser.role === 1 || currentUser.role === 2) && (
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                      {currentUser.role === 2 ? "Super Admin" : "Admin"}
+                    </span>
+                  )}
+                  <span className="text-[11px] font-semibold text-emerald-700">Profile &rarr;</span>
+                </div>
+              </Link>
             )}
 
             <nav className="flex flex-col gap-1 text-xs font-semibold">
@@ -380,6 +389,18 @@ export default function Navbar() {
               >
                 <Home className="w-4 h-4" />
                 <span>Home</span>
+              </Link>
+
+              <Link
+                to="/profile"
+                className={`px-3.5 py-2 rounded-xl transition flex items-center gap-2 ${
+                  isActive("/profile")
+                    ? "bg-emerald-50 text-emerald-800 font-bold"
+                    : "text-stone-700 hover:bg-stone-100"
+                }`}
+              >
+                <User className="w-4 h-4 text-emerald-700" />
+                <span>My Profile</span>
               </Link>
 
               <Link

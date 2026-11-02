@@ -22,21 +22,7 @@ import {
 import { fetchActivityHistory, ActivityRecord } from "../../lib/activityHistory"
 import { useAuth } from "../../context/AuthContext"
 import { User as DbUser } from "../../types/database"
-
-function formatTimeAgo(isoString?: string): string {
-  if (!isoString) return ""
-  const date = new Date(isoString)
-  const now = new Date()
-  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000)
-  if (diffSec < 60) return "just now"
-  const diffMin = Math.floor(diffSec / 60)
-  if (diffMin < 60) return `${diffMin}m ago`
-  const diffHours = Math.floor(diffMin / 60)
-  if (diffHours < 24) return `${diffHours}h ago`
-  const diffDays = Math.floor(diffHours / 24)
-  if (diffDays < 30) return `${diffDays}d ago`
-  return date.toLocaleDateString()
-}
+import { formatTimeAgo, formatISTDateTime } from "../../lib/dateUtils"
 
 export default function AdminHistoryPage() {
   const { fetchStudents } = useAuth()
@@ -304,7 +290,7 @@ export default function AdminHistoryPage() {
                         <span className="font-mono text-[11px]">{formatTimeAgo(log.created_at)}</span>
                       </div>
                       <span className="text-[10px] text-stone-400 block font-mono">
-                        {new Date(log.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        {formatISTDateTime(log.created_at)}
                       </span>
                     </td>
 

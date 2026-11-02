@@ -15,6 +15,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   adminLogin: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   register: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>
+  updateProfile: (data: { name?: string; email_address?: string; password?: string }) => Promise<{ success: boolean; error?: string }>
   logout: () => void
   // Student Management (CRUD)
   fetchStudents: () => Promise<User[]>
@@ -369,7 +370,82 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: true }
   }
 
-  // 4. Logout
+  // 4. Update Profile & Password
+  const updateProfile = async (data: {
+    name?: string
+    email_address?: string
+    password?: string
+  }): Promise<{ success: boolean; error?: string }> => {
+    if (!currentUser) {
+      return { success: false, error: "You must be signed in to update your profile." }
+    }
+
+    const payload: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    }
+
+    if (data.name && data.name.trim()) {
+      payload.name = data.name.trim()
+    }
+    if (data.email_address && data.email_address.trim()) {
+      payload.email_address = data.email_address.trim().toLowerCase()
+    }
+    if (data.password && data.password.trim()) {
+      if (data.password.trim().length < 6) {
+        return { success: false, error: "Password must be at least 6 characters long." }
+      }
+      payload.password_digest = hashPassword(data.password.trim())
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data: updated, error } = await supabase
+          .from("users")
+          .update(payload)
+          .eq("id", currentUser.id)
+          .select()
+          .single()
+
+        if (error) throw error
+
+        if (data.password && data.password.trim()) {
+          await saveStudentPassword(currentUser.id, data.password.trim())
+        }
+
+        saveSession(updated as User)
+        logActivity({
+          user_id: currentUser.id,
+          user_name: updated.name,
+          user_email: updated.email_address,
+          user_role: updated.role,
+          action: "update",
+          resource_type: "user",
+          resource_id: currentUser.id,
+          resource_title: updated.name,
+          details: `User updated profile information${data.password ? " and changed password" : ""}`,
+        })
+
+        return { success: true }
+      } catch (err: any) {
+        return { success: false, error: err?.message || "Failed to update profile." }
+      }
+    }
+
+    // Offline / Mock fallback
+    const updatedUser: User = {
+      ...currentUser,
+      ...(payload.name ? { name: payload.name } : {}),
+      ...(payload.email_address ? { email_address: payload.email_address } : {}),
+      updated_at: payload.updated_at,
+    }
+    if (data.password && data.password.trim()) {
+      saveStudentPassword(currentUser.id, data.password.trim())
+    }
+    saveSession(updatedUser)
+    return { success: true }
+  }
+
+  // 5. Logout
   const logout = () => {
     saveSession(null)
   }
@@ -585,6 +661,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         adminLogin,
         register,
+        updateProfile,
         logout,
         fetchStudents,
         createStudent,

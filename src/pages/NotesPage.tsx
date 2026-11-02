@@ -31,23 +31,9 @@ import {
   Clock,
 } from "lucide-react"
 import ReactionBar from "../components/common/ReactionBar"
+import { formatTimeAgo } from "../lib/dateUtils"
 
 type FilterTab = "all" | "general" | "lesson" | "shared" | "mine"
-
-function formatTimeAgo(isoString?: string): string {
-  if (!isoString) return ""
-  const date = new Date(isoString)
-  const now = new Date()
-  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000)
-  if (diffSec < 60) return "just now"
-  const diffMin = Math.floor(diffSec / 60)
-  if (diffMin < 60) return `${diffMin}m ago`
-  const diffHours = Math.floor(diffMin / 60)
-  if (diffHours < 24) return `${diffHours}h ago`
-  const diffDays = Math.floor(diffHours / 24)
-  if (diffDays < 30) return `${diffDays}d ago`
-  return date.toLocaleDateString()
-}
 
 export default function NotesPage() {
   const { currentUser, isSuperAdmin } = useAuth()
@@ -752,6 +738,34 @@ export default function NotesPage() {
                 {/* Note Header */}
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 flex-wrap">
+                    {/* Author Name */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-xs text-stone-900">
+                        {note.user?.name || "Community"}
+                      </span>
+                      {note.user?.role !== undefined && note.user.role >= 1 && (
+                        <span className="text-[10px] bg-stone-100 text-stone-600 px-1.5 py-0.5 rounded font-semibold border border-stone-200">
+                          Teacher
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Mode (Public / Shared) */}
+                    {note.is_global ? (
+                      <span className="text-[10px] font-medium text-stone-500 bg-stone-100 px-2 py-0.5 rounded-md flex items-center gap-1">
+                        <Globe className="w-3 h-3 text-stone-400" />
+                        <span>Public</span>
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                        <Users className="w-3 h-3 text-blue-500" />
+                        <span>
+                          Shared with {note.note_shares?.length || 0}{" "}
+                          {note.note_shares?.length === 1 ? "student" : "students"}
+                        </span>
+                      </span>
+                    )}
+
                     {note.lesson && (
                       <Link
                         to={
@@ -771,18 +785,9 @@ export default function NotesPage() {
                       </Link>
                     )}
 
-                    {note.is_global ? (
-                      <span className="text-[10px] font-medium text-stone-500 bg-stone-100 px-2 py-0.5 rounded-md flex items-center gap-1">
-                        <Globe className="w-3 h-3 text-stone-400" />
-                        <span>Public</span>
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md flex items-center gap-1">
-                        <Users className="w-3 h-3 text-blue-500" />
-                        <span>
-                          Shared with {note.note_shares?.length || 0}{" "}
-                          {note.note_shares?.length === 1 ? "student" : "students"}
-                        </span>
+                    {currentUser && note.user_id !== currentUser.id && userShare && (
+                      <span className="text-[10px] text-blue-600 font-medium">
+                        • {userShare.can_edit ? "Can edit" : "View only"}
                       </span>
                     )}
                   </div>
@@ -801,21 +806,11 @@ export default function NotesPage() {
                   {note.content}
                 </div>
 
-                {/* Note Footer: Author Info & Actions */}
-                <div className="pt-3 border-t border-stone-100 flex flex-wrap items-center justify-between gap-2 text-xs text-stone-500">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-stone-700">
-                      {note.user?.name || "Community"}
-                    </span>
-                    {note.user?.role !== undefined && note.user.role >= 1 && (
-                      <span className="text-[10px] bg-stone-100 text-stone-600 px-1.5 py-0.5 rounded font-semibold border border-stone-200">
-                        Teacher
-                      </span>
-                    )}
-                    {currentUser && note.user_id !== currentUser.id && userShare && (
-                      <span className="text-[10px] text-blue-600 font-medium">
-                        • {userShare.can_edit ? "Can edit" : "View only"}
-                      </span>
+                {/* Note Footer: Reactions & Actions */}
+                <div className="pt-2.5 border-t border-stone-100 flex items-center justify-between gap-2 text-xs text-stone-500">
+                  <div className="text-[11px] text-stone-400">
+                    {note.updated_at && note.updated_at !== note.created_at && (
+                      <span className="text-amber-600 italic">(edited)</span>
                     )}
                   </div>
 

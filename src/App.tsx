@@ -12,6 +12,7 @@ import LessonsPage from "./pages/LessonsPage"
 import TopicsPage from "./pages/TopicsPage"
 import LessonDetailPage from "./pages/LessonDetailPage"
 import NotesPage from "./pages/NotesPage"
+import ProfilePage from "./pages/ProfilePage"
 import SignInPage from "./pages/SignInPage"
 import SignUpPage from "./pages/SignUpPage"
 
@@ -120,6 +121,14 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <NotesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
               </ProtectedRoute>
             }
           />
