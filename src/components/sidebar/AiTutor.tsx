@@ -334,42 +334,41 @@ export default function AiTutor({ lesson }: AiTutorProps) {
 
   return (
     <div className="flex flex-col h-[480px] lg:h-[520px]">
-      {/* Header bar with Hamburger on Top Left */}
+      {/* Header bar: Brand on Left, Prompts & Reset on Right */}
       <div className="p-2.5 sm:p-3 bg-emerald-900/5 border-b border-emerald-900/10 flex items-center justify-between gap-2">
+        {/* Left Side: Ask Akib Sir Brand */}
         <div className="flex items-center gap-2 min-w-0">
-          {/* Hamburger / Prompts Toggle Button on Top Left */}
-          <button
-            type="button"
-            onClick={() => setShowPromptsMenu(!showPromptsMenu)}
-            className={`p-1.5 rounded-lg border transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
-              showPromptsMenu
-                ? "bg-emerald-800 text-white border-emerald-800 shadow-2xs"
-                : "bg-white text-stone-700 border-stone-200 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300"
-            }`}
-            title={showPromptsMenu ? "Hide Prompts" : "Open Quick Prompts"}
-            aria-label="Toggle Quick Prompts"
-          >
-            {showPromptsMenu ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-            <span className="text-[11px] font-bold">Prompts</span>
-          </button>
-
-          <div className="flex items-center gap-1.5 min-w-0">
-            <div className="w-6 h-6 rounded-lg bg-emerald-700 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
-              ✨
-            </div>
-            <div className="min-w-0">
-              <span className="text-xs font-bold text-stone-900 block leading-tight truncate">
-                Ask Akib Sir
-              </span>
-              <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1 truncate">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
-                Hinglish AI Tutor
-              </span>
-            </div>
+          <div className="w-7 h-7 rounded-lg bg-emerald-700 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+            ✨
+          </div>
+          <div className="min-w-0">
+            <span className="text-xs font-bold text-stone-900 block leading-tight truncate">
+              Ask Akib Sir
+            </span>
+            <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1 truncate">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+              Hinglish AI Tutor
+            </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-1 shrink-0">
+        {/* Right Side: Prompts Hamburger Button & Reset */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowPromptsMenu(!showPromptsMenu)}
+            className={`px-2.5 py-1.5 rounded-xl border transition flex items-center gap-1.5 cursor-pointer shrink-0 ${
+              showPromptsMenu
+                ? "bg-emerald-800 text-white border-emerald-800 shadow-2xs"
+                : "bg-white text-stone-700 border-stone-200 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300 shadow-2xs"
+            }`}
+            title={showPromptsMenu ? "Close Prompts" : "Open Quick Prompts"}
+            aria-label="Toggle Quick Prompts"
+          >
+            {showPromptsMenu ? <X className="w-3.5 h-3.5" /> : <Menu className="w-3.5 h-3.5" />}
+            <span className="text-[11px] font-bold">Prompts</span>
+          </button>
+
           {messages.length > 0 && (
             <button
               type="button"
@@ -384,7 +383,7 @@ export default function AiTutor({ lesson }: AiTutorProps) {
         </div>
       </div>
 
-      {/* Hamburger Dropdown / Prompts Drawer (Opened via Top-Left Hamburger) */}
+      {/* Hamburger Dropdown / Prompts Drawer (Opened via Prompts Button) */}
       {showPromptsMenu && (
         <div className="p-3 bg-stone-50 border-b border-stone-200 space-y-2 animate-in slide-in-from-top-2 duration-150 z-20">
           <div className="flex items-center justify-between text-xs font-bold text-stone-800">
@@ -423,24 +422,6 @@ export default function AiTutor({ lesson }: AiTutorProps) {
           </div>
         </div>
       )}
-
-      {/* Top Left Prompts Quick-Chips Bar */}
-      <div className="flex items-center gap-1.5 overflow-x-auto px-2.5 py-1.5 scrollbar-none text-[11px] border-b border-stone-100 bg-stone-50/70 shrink-0">
-        <span className="text-stone-400 font-bold whitespace-nowrap text-[10px] uppercase tracking-wider pl-0.5">
-          Prompts:
-        </span>
-        {QUICK_PROMPTS.map((opt, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => handleSelectPrompt(opt)}
-            className="px-2.5 py-1 bg-white hover:bg-emerald-50 hover:text-emerald-900 hover:border-emerald-300 text-stone-700 rounded-full font-medium whitespace-nowrap transition cursor-pointer border border-stone-200 text-[11px] shadow-2xs shrink-0 flex items-center gap-1"
-          >
-            <span>{opt.icon}</span>
-            <span>{opt.title}</span>
-          </button>
-        ))}
-      </div>
 
       {/* Messages Scroll Area */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-3.5 space-y-3 text-xs">
