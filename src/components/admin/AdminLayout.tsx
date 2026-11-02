@@ -1,7 +1,7 @@
 import React from "react"
 import { Link, useLocation, Navigate, Outlet } from "react-router-dom"
 import { useAuth } from "../../context/AuthContext"
-import { ShieldCheck, LogOut, BookOpen, Users, UserCheck } from "lucide-react"
+import { ShieldCheck, LogOut, BookOpen, Users, UserCheck, History, ExternalLink } from "lucide-react"
 
 export default function AdminLayout() {
   const { currentUser, isAdmin, isSuperAdmin, logout } = useAuth()
@@ -44,7 +44,7 @@ export default function AdminLayout() {
             <Link
               to="/admin"
               className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
-                isActive("/admin") && !pathname.startsWith("/admin/students") && !pathname.startsWith("/admin/admins")
+                isActive("/admin") && !pathname.startsWith("/admin/students") && !pathname.startsWith("/admin/admins") && !pathname.startsWith("/admin/history")
                   ? "bg-white/20 text-white"
                   : "bg-white/10 hover:bg-white/20 text-stone-200"
               }`}
@@ -65,6 +65,18 @@ export default function AdminLayout() {
               <span>Students</span>
             </Link>
 
+            <Link
+              to="/admin/history"
+              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
+                isActive("/admin/history")
+                  ? "bg-white/20 text-white"
+                  : "bg-white/10 hover:bg-white/20 text-stone-200"
+              }`}
+            >
+              <History className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Activity History</span>
+            </Link>
+
             {/* Strictly Super Admin can access and manage staff Admins */}
             {isSuperAdmin && (
               <Link
@@ -79,6 +91,16 @@ export default function AdminLayout() {
                 <span>Admin Management</span>
               </Link>
             )}
+
+            {/* Quick Link to Student UI */}
+            <Link
+              to="/"
+              className="px-3 py-1.5 rounded-lg bg-emerald-800/60 hover:bg-emerald-800 border border-emerald-600/40 text-emerald-200 hover:text-white transition flex items-center gap-1.5"
+              title="Browse app as student"
+            >
+              <span>Student View</span>
+              <ExternalLink className="w-3 h-3" />
+            </Link>
           </nav>
         </div>
 

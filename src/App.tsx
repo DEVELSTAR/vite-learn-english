@@ -23,6 +23,7 @@ import NewLessonPage from "./pages/admin/NewLessonPage"
 import EditLessonPage from "./pages/admin/EditLessonPage"
 import AdminStudentsPage from "./pages/admin/AdminStudentsPage"
 import AdminAdminsPage from "./pages/admin/AdminAdminsPage"
+import AdminHistoryPage from "./pages/admin/AdminHistoryPage"
 
 // Route Guard: Requires student or admin to be signed in
 function ProtectedRoute({ children }: { children: React.ReactElement }) {
@@ -131,6 +132,7 @@ function AppContent() {
             <Route path="lessons/:id/edit" element={<EditLessonPage />} />
             <Route path="students" element={<AdminStudentsPage />} />
             <Route path="admins" element={<AdminAdminsPage />} />
+            <Route path="history" element={<AdminHistoryPage />} />
           </Route>
 
           {/* Fallback */}

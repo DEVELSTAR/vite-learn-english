@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 import { Lesson, User, LessonComment, Note, NoteShare, LessonChatMessage, LessonCompletion } from "../types/database"
 import { MOCK_LESSONS, MOCK_USERS } from "./mockData"
+import { logActivity } from "./activityHistory"
 
 export function normalizeSupabaseUrl(rawUrl?: string): string {
   if (!rawUrl) return ""
@@ -416,6 +417,19 @@ export async function postLessonComment(
     .single()
 
   if (error) throw error
+
+  logActivity({
+    user_id: userId,
+    user_name: data.user?.name || "Student",
+    user_email: data.user?.email_address || "",
+    user_role: data.user?.role ?? 0,
+    action: "create",
+    resource_type: "comment",
+    resource_id: data.id,
+    resource_title: `Lesson #${lessonId}`,
+    details: `Posted discussion comment on lesson #${lessonId}`,
+  })
+
   return data as LessonComment
 }
 
@@ -438,6 +452,18 @@ export async function updateLessonComment(
     .single()
 
   if (error) throw error
+
+  logActivity({
+    user_id: userId,
+    user_name: data.user?.name || "Student",
+    user_email: data.user?.email_address || "",
+    user_role: data.user?.role ?? 0,
+    action: "update",
+    resource_type: "comment",
+    resource_id: commentId,
+    details: `Updated discussion comment #${commentId}`,
+  })
+
   return data as LessonComment
 }
 
@@ -461,6 +487,17 @@ export async function deleteLessonComment(
     .eq("user_id", userId)
 
   if (error) throw error
+
+  logActivity({
+    user_id: userId,
+    user_name: "Student",
+    user_email: "",
+    user_role: 0,
+    action: "destroy",
+    resource_type: "comment",
+    resource_id: commentId,
+    details: `Deleted discussion comment #${commentId}`,
+  })
 }
 
 // 7. Student Notes & Sharing System
@@ -786,7 +823,21 @@ export async function createNoteWithSharing(
   }
 
   const full = await fetchNoteById(note.id)
-  return full || (note as Note)
+  const resultNote = full || (note as Note)
+
+  logActivity({
+    user_id: userId,
+    user_name: resultNote.user?.name || "Student",
+    user_email: resultNote.user?.email_address || "",
+    user_role: resultNote.user?.role ?? 0,
+    action: "create",
+    resource_type: "note",
+    resource_id: resultNote.id,
+    resource_title: payload.lessonId ? `Lesson #${payload.lessonId}` : "General Note",
+    details: `Created study note: "${payload.content.slice(0, 60)}${payload.content.length > 60 ? "..." : ""}"`,
+  })
+
+  return resultNote
 }
 
 export async function updateNoteWithSharing(
@@ -869,7 +920,20 @@ export async function updateNoteWithSharing(
   }
 
   const refreshed = await fetchNoteById(noteId)
-  return refreshed || existingNote
+  const resultNote = refreshed || existingNote
+
+  logActivity({
+    user_id: userId,
+    user_name: resultNote.user?.name || "Student",
+    user_email: resultNote.user?.email_address || "",
+    user_role: resultNote.user?.role ?? 0,
+    action: "update",
+    resource_type: "note",
+    resource_id: noteId,
+    details: `Updated study note #${noteId}`,
+  })
+
+  return resultNote
 }
 
 export async function deleteNote(
@@ -891,6 +955,17 @@ export async function deleteNote(
 
   const { error } = await supabase.from("notes").delete().eq("id", noteId)
   if (error) throw error
+
+  logActivity({
+    user_id: userId,
+    user_name: existing.user?.name || "User",
+    user_email: existing.user?.email_address || "",
+    user_role: existing.user?.role ?? 0,
+    action: "destroy",
+    resource_type: "note",
+    resource_id: noteId,
+    details: `Deleted study note #${noteId}`,
+  })
 }
 
 // Backward-compatible wrappers

@@ -7,10 +7,14 @@ import {
   getEntityReactions,
   toggleEntityReaction,
 } from "../../lib/reactions"
+import { addReactionNotification } from "../../lib/notifications"
+import { logActivity } from "../../lib/activityHistory"
 
 interface ReactionBarProps {
   entityType: "ai_chat" | "comment" | "note"
   entityId: string | number
+  ownerId?: number
+  contentPreview?: string
   className?: string
   align?: "left" | "right"
 }
@@ -18,6 +22,8 @@ interface ReactionBarProps {
 export default function ReactionBar({
   entityType,
   entityId,
+  ownerId,
+  contentPreview,
   className = "",
   align = "left",
 }: ReactionBarProps) {
@@ -58,9 +64,36 @@ export default function ReactionBar({
 
   const handleToggle = (emoji: ReactionEmoji) => {
     if (!currentUser) return
+    const currentList = reactions[emoji] || []
+    const isAdding = !currentList.includes(currentUser.id)
+
     const updated = toggleEntityReaction(entityType, entityId, currentUser.id, emoji)
     setReactions({ ...updated })
     setShowPicker(false)
+
+    // If a reaction was added, send notification to owner if present
+    if (isAdding && ownerId && ownerId !== currentUser.id) {
+      addReactionNotification({
+        ownerId,
+        actorId: currentUser.id,
+        actorName: currentUser.name,
+        entityType,
+        entityId,
+        emoji,
+        contentPreview,
+      })
+
+      logActivity({
+        user_id: currentUser.id,
+        user_name: currentUser.name,
+        user_email: currentUser.email_address,
+        user_role: currentUser.role,
+        action: "create",
+        resource_type: "reaction",
+        resource_id: entityId,
+        details: `Reacted ${emoji} on ${entityType} #${entityId}`,
+      })
+    }
   }
 
   const activeEmojis = Object.keys(reactions).filter(

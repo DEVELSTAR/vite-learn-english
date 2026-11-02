@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from "react"
 import { useAuth } from "../../context/AuthContext"
 import { User } from "../../types/database"
-import { Users, Plus, Search, Trash2, Edit2, Key, Loader2, X, Check } from "lucide-react"
+import { Users, Plus, Search, Trash2, Edit2, Loader2, X, Check, Eye, EyeOff, Lock } from "lucide-react"
+import { fetchAllStudentPasswords } from "../../lib/studentPasswords"
 
 export default function StudentManager() {
   const { fetchStudents, createStudent, updateStudent, deleteStudent } = useAuth()
 
   const [students, setStudents] = useState<User[]>([])
+  const [passwords, setPasswords] = useState<Record<number, string>>({})
+  const [visiblePasswordIds, setVisiblePasswordIds] = useState<Set<number>>(new Set())
   const [search, setSearch] = useState("")
   const [isLoading, setIsLoading] = useState(true)
 
@@ -16,14 +19,19 @@ export default function StudentManager() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showModalPassword, setShowModalPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [modalError, setModalError] = useState<string | null>(null)
 
   const loadData = async () => {
     setIsLoading(true)
     try {
-      const data = await fetchStudents()
+      const [data, pwds] = await Promise.all([
+        fetchStudents(),
+        fetchAllStudentPasswords(),
+      ])
       setStudents(data)
+      setPasswords(pwds)
     } catch (err: any) {
       console.error("Failed to load students:", err)
     } finally {
@@ -35,11 +43,24 @@ export default function StudentManager() {
     loadData()
   }, [])
 
+  const togglePasswordVisibility = (studentId: number) => {
+    setVisiblePasswordIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(studentId)) {
+        next.delete(studentId)
+      } else {
+        next.add(studentId)
+      }
+      return next
+    })
+  }
+
   const openCreateModal = () => {
     setEditingStudent(null)
     setName("")
     setEmail("")
     setPassword("")
+    setShowModalPassword(true)
     setModalError(null)
     setIsModalOpen(true)
   }
@@ -48,7 +69,8 @@ export default function StudentManager() {
     setEditingStudent(student)
     setName(student.name)
     setEmail(student.email_address)
-    setPassword("") // Empty unless changing
+    setPassword(passwords[student.id] || "")
+    setShowModalPassword(false)
     setModalError(null)
     setIsModalOpen(true)
   }
@@ -107,7 +129,7 @@ export default function StudentManager() {
             <span>Student Management</span>
           </h1>
           <p className="text-xs text-stone-500">
-            View registered learners, manually create accounts, or reset passwords.
+            View registered learners, view their passwords, manually create accounts, or reset passwords.
           </p>
         </div>
 
@@ -147,6 +169,7 @@ export default function StudentManager() {
               <tr>
                 <th className="py-2.5 px-3">Student Name</th>
                 <th className="py-2.5 px-3">Email Address</th>
+                <th className="py-2.5 px-3">Password</th>
                 <th className="py-2.5 px-3">Joined Date</th>
                 <th className="py-2.5 px-3 text-right">Actions</th>
               </tr>
@@ -154,52 +177,75 @@ export default function StudentManager() {
             <tbody className="divide-y divide-stone-100 font-medium">
               {isLoading ? (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-stone-400">
+                  <td colSpan={5} className="py-8 text-center text-stone-400">
                     <Loader2 className="w-4 h-4 animate-spin mx-auto mb-1" />
                     <span>Loading student records...</span>
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-stone-400">
+                  <td colSpan={5} className="py-8 text-center text-stone-400">
                     No students found. Click &quot;Add New Student&quot; to enroll learners.
                   </td>
                 </tr>
               ) : (
-                filtered.map((student) => (
-                  <tr key={student.id} className="hover:bg-stone-50/60 transition">
-                    <td className="py-3 px-3 font-bold text-stone-900 flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-[10px] font-bold">
-                        {student.name.charAt(0).toUpperCase()}
-                      </div>
-                      <span>{student.name}</span>
-                    </td>
-                    <td className="py-3 px-3 text-stone-600 font-mono text-[11px]">{student.email_address}</td>
-                    <td className="py-3 px-3 text-stone-400">
-                      {student.created_at ? new Date(student.created_at).toLocaleDateString() : "Active"}
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => openEditModal(student)}
-                          className="p-1.5 hover:bg-stone-100 text-stone-600 rounded-lg transition cursor-pointer"
-                          title="Edit Student or Reset Password"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(student)}
-                          className="p-1.5 hover:bg-red-50 text-stone-400 hover:text-red-600 rounded-lg transition cursor-pointer"
-                          title="Delete Student"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                filtered.map((student) => {
+                  const plainPassword = passwords[student.id]
+                  const isVisible = visiblePasswordIds.has(student.id)
+
+                  return (
+                    <tr key={student.id} className="hover:bg-stone-50/60 transition">
+                      <td className="py-3 px-3 font-bold text-stone-900 flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-[10px] font-bold">
+                          {student.name.charAt(0).toUpperCase()}
+                        </div>
+                        <span>{student.name}</span>
+                      </td>
+                      <td className="py-3 px-3 text-stone-600 font-mono text-[11px]">{student.email_address}</td>
+                      <td className="py-3 px-3">
+                        <div className="inline-flex items-center gap-1.5 bg-stone-100 px-2 py-1 rounded-lg border border-stone-200 font-mono text-[11px]">
+                          <Lock className="w-3 h-3 text-stone-400" />
+                          <span>
+                            {isVisible
+                              ? plainPassword || "••••••••"
+                              : "••••••••"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => togglePasswordVisibility(student.id)}
+                            className="text-stone-400 hover:text-stone-700 p-0.5 cursor-pointer"
+                            title={isVisible ? "Hide password" : "Show password"}
+                          >
+                            {isVisible ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="py-3 px-3 text-stone-400">
+                        {student.created_at ? new Date(student.created_at).toLocaleDateString() : "Active"}
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(student)}
+                            className="p-1.5 hover:bg-stone-100 text-stone-600 rounded-lg transition cursor-pointer"
+                            title="Edit Student or View/Reset Password"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(student)}
+                            className="p-1.5 hover:bg-red-50 text-stone-400 hover:text-red-600 rounded-lg transition cursor-pointer"
+                            title="Delete Student"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>
@@ -256,24 +302,48 @@ export default function StudentManager() {
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-stone-700">
-                  {editingStudent ? "Reset Password (leave blank to keep unchanged)" : "Temporary Password (min 6 chars)"}
-                </label>
-                <input
-                  type="password"
-                  required={!editingStudent}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={editingStudent ? "••••••••" : "Enter password..."}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 focus:outline-none focus:border-purple-600 focus:ring-1 focus:ring-purple-600 transition"
-                />
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-stone-700">
+                    {editingStudent ? "Student Password" : "Password (min 6 chars)"}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowModalPassword(!showModalPassword)}
+                    className="text-[11px] text-stone-500 hover:text-stone-800 flex items-center gap-1 cursor-pointer"
+                  >
+                    {showModalPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    <span>{showModalPassword ? "Hide" : "Show"}</span>
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showModalPassword ? "text" : "password"}
+                    required={!editingStudent}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={editingStudent ? "Enter new password to change..." : "Enter password..."}
+                    className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-stone-300 focus:outline-none focus:border-purple-600 focus:ring-1 focus:ring-purple-600 transition"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowModalPassword(!showModalPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 p-0.5"
+                  >
+                    {showModalPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {editingStudent && (
+                  <p className="text-[10px] text-stone-400">
+                    Leave unchanged to preserve the student&apos;s current password.
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center justify-end gap-2.5 pt-3">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-stone-600 hover:bg-stone-100 font-semibold transition"
+                  className="px-4 py-2 rounded-xl text-stone-600 hover:bg-stone-100 font-semibold transition cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -293,4 +363,3 @@ export default function StudentManager() {
     </div>
   )
 }
-

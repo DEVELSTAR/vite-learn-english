@@ -215,7 +215,13 @@ export default function ChatRoom({ lesson, onCommentCountChange }: ChatRoomProps
 
                       <div className="pt-1.5 flex flex-wrap items-center justify-between gap-1.5 border-t border-stone-100">
                         <div className="flex items-center gap-2">
-                          <ReactionBar entityType="comment" entityId={comment.id} align="left" />
+                          <ReactionBar
+                            entityType="comment"
+                            entityId={comment.id}
+                            ownerId={comment.user_id}
+                            contentPreview={comment.content}
+                            align="left"
+                          />
 
                           {isOwner && (
                             <div className="flex items-center gap-1.5 pl-1.5 border-l border-stone-200">
@@ -309,7 +315,13 @@ export default function ChatRoom({ lesson, onCommentCountChange }: ChatRoomProps
                               <p className="text-stone-700 leading-relaxed whitespace-pre-wrap">{reply.content}</p>
 
                               <div className="pt-1.5 flex flex-wrap items-center justify-between gap-1.5 border-t border-stone-200/60">
-                                <ReactionBar entityType="comment" entityId={reply.id} align="left" />
+                                <ReactionBar
+                                  entityType="comment"
+                                  entityId={reply.id}
+                                  ownerId={reply.user_id}
+                                  contentPreview={reply.content}
+                                  align="left"
+                                />
 
                                 {isReplyOwner && (
                                   <div className="flex items-center gap-1.5">

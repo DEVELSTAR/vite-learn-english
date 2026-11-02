@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react"
 import { Link, useNavigate, useLocation } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
-import { UserPlus, Mail, Lock, User, AlertCircle, Loader2, KeyRound } from "lucide-react"
+import { UserPlus, Mail, Lock, User, AlertCircle, Loader2, KeyRound, Eye, EyeOff } from "lucide-react"
 
 export default function SignUpPage() {
   const navigate = useNavigate()
@@ -11,6 +11,7 @@ export default function SignUpPage() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -99,18 +100,36 @@ export default function SignUpPage() {
           </div>
 
           <div className="space-y-1">
-            <label className="font-bold text-stone-700">Password (min 6 characters)</label>
+            <div className="flex items-center justify-between">
+              <label className="font-bold text-stone-700">Password (min 6 characters)</label>
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="text-[11px] text-stone-500 hover:text-stone-800 flex items-center gap-1 cursor-pointer"
+              >
+                {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                <span>{showPassword ? "Hide" : "Show"}</span>
+              </button>
+            </div>
             <div className="relative">
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 required
                 minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-stone-300 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition"
+                className="w-full pl-9 pr-10 py-2.5 rounded-xl border border-stone-300 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition"
               />
               <Lock className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="text-stone-400 hover:text-stone-700 absolute right-3 top-1/2 -translate-y-1/2 p-0.5 cursor-pointer"
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 

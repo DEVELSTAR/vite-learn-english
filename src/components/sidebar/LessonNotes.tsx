@@ -314,7 +314,13 @@ export default function LessonNotes({ lesson, onNotesCountChange }: LessonNotesP
                       </div>
 
                       <div className="flex items-center gap-1.5">
-                        <ReactionBar entityType="note" entityId={note.id} align="right" />
+                        <ReactionBar
+                          entityType="note"
+                          entityId={note.id}
+                          ownerId={note.user_id}
+                          contentPreview={note.content}
+                          align="right"
+                        />
 
                         {(canEdit || canDelete) && (
                           <div className="flex items-center gap-1 pl-1 border-l border-stone-200">

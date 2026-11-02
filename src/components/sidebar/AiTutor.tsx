@@ -23,6 +23,42 @@ interface AiTutorProps {
   lesson: Lesson
 }
 
+function buildSystemPrompt(lesson: Lesson, userName: string): string {
+  const typeLabel = lesson.lesson_type === 1 ? "Topic" : "Daily Class"
+  const lessonSummary = lesson.content
+    ? lesson.content.replace(/<[^>]*>/g, "").slice(0, 1500)
+    : lesson.introduction || "No lesson text provided"
+
+  return `You are a warm, highly encouraging, and patient personal English Tutor named 'Akib Sir' on the 'Learn English' web app.
+You specialize in helping Hindi-speaking students become fluent and confident in everyday, spoken, and professional English.
+
+CURRENT ${typeLabel.toUpperCase()} CONTEXT:
+- Title: "${lesson.title}"
+- Type: ${typeLabel}
+- Date: ${lesson.lesson_date}
+- Content / Key Concepts:
+${lessonSummary}
+
+STUDENT PROFILE:
+- Name: ${userName}
+- The student is learning English and prefers simple, natural conversational Hinglish (Hindi written in Roman English script + clear English sentences).
+
+TEACHING & RESPONSE GUIDELINES:
+1. Explanations:
+   - Keep explanations clear, friendly, and relatable.
+   - Mix conversational Hinglish with English (e.g., "Jab aap kisi cheez ki value pehle se maan lete hain...").
+   - Use short bullet points and bold formatting for key English vocabulary.
+2. Sentence Correction ("Correct me if I'm wrong"):
+   - If the student writes a sentence and asks for feedback or tries to practice:
+     a. Acknowledge what was good (positive reinforcement).
+     b. Gently point out any grammatical or collocation errors.
+     c. Provide the natural, native alternative in bold.
+     d. Explain the 'why' in simple Hinglish so they remember the concept.
+3. Practice Encouragement:
+   - Keep answers concise (under 150-200 words) so the student isn't overwhelmed.
+   - End with a quick follow-up question or micro-challenge asking them to make a sentence using one of the words.`
+}
+
 export default function AiTutor({ lesson }: AiTutorProps) {
   const { currentUser } = useAuth()
   const [messages, setMessages] = useState<Message[]>([])
@@ -100,17 +136,13 @@ export default function AiTutor({ lesson }: AiTutorProps) {
     try {
       if (!apiKey) {
         await new Promise((r) => setTimeout(r, 800))
-        const demoReply = `Hello ${currentUser?.name || "there"}! I'm your AI English Tutor. To activate real-time Gemini AI explanations, please add your VITE_GEMINI_API_KEY in your environment variables. In this lesson "${lesson.title}", remember to focus on natural usage rather than direct translation!`
+        const demoReply = `Namaste ${currentUser?.name || "Student"}! 🙏 Main aapka **AI English Tutor** Akib Sir hoon.\n\nAapka question tha: *"${textToSend.slice(0, 80)}..."*\n\nLive Google Gemini AI explanations activate karne ke liye please apna free **VITE_GEMINI_API_KEY** configure karein!\n\n**Tip for "${lesson.title}":** Is context ke concepts se ek sentence banayein aur daily practice karein!`
         setMessages((prev) => [...prev, { role: "model", content: demoReply }])
         setIsLoading(false)
         return
       }
 
-      const systemInstruction = `You are "Akib Sir", a friendly, patient, and highly practical AI English Tutor for Indian learners speaking Hindi/Urdu.
-The current lesson is titled "${lesson.title}".
-Lesson Introduction: "${lesson.introduction || "General English Practice"}".
-Lesson Content Summary: "${lesson.content ? lesson.content.replace(/<[^>]*>/g, "").slice(0, 800) : "Learn English daily."}".
-Always provide concise, encouraging, and clear explanations. Use Hinglish sparingly to clarify difficult points, but encourage the student to think in English. Keep answers engaging and under 4-5 sentences when possible.`
+      const systemInstruction = buildSystemPrompt(lesson, currentUser?.name || "Student")
 
       const { reply } = await sendGeminiChatMessage({
         apiKey,
@@ -171,11 +203,7 @@ Always provide concise, encouraging, and clear explanations. Use Hinglish sparin
         setIsLoading(true)
         setError(null)
         try {
-          const systemInstruction = `You are "Akib Sir", a friendly, patient, and highly practical AI English Tutor for Indian learners speaking Hindi/Urdu.
-The current lesson is titled "${lesson.title}".
-Lesson Introduction: "${lesson.introduction || "General English Practice"}".
-Lesson Content Summary: "${lesson.content ? lesson.content.replace(/<[^>]*>/g, "").slice(0, 800) : "Learn English daily."}".
-Always provide concise, encouraging, and clear explanations. Use Hinglish sparingly to clarify difficult points, but encourage the student to think in English. Keep answers engaging and under 4-5 sentences when possible.`
+          const systemInstruction = buildSystemPrompt(lesson, currentUser?.name || "Student")
 
           const { reply } = await sendGeminiChatMessage({
             apiKey,
@@ -240,14 +268,14 @@ Always provide concise, encouraging, and clear explanations. Use Hinglish sparin
       {/* Header bar */}
       <div className="p-3 bg-emerald-900/5 border-b border-emerald-900/10 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-emerald-700 text-white flex items-center justify-center">
-            <Bot className="w-3.5 h-3.5" />
+          <div className="w-6 h-6 rounded-lg bg-emerald-700 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+            ✨
           </div>
           <div>
-            <span className="text-xs font-bold text-stone-900 block leading-tight">Akib Sir (AI Tutor)</span>
+            <span className="text-xs font-bold text-stone-900 block leading-tight">Ask Akib Sir (AI Tutor)</span>
             <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              Online &bull; 24/7 Practice
+              Gemini Flash &bull; 24/7 Hinglish Feedback
             </span>
           </div>
         </div>
@@ -268,41 +296,14 @@ Always provide concise, encouraging, and clear explanations. Use Hinglish sparin
       {/* Messages Scroll Area */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-3.5 space-y-3 text-xs">
         {messages.length === 0 ? (
-          <div className="text-center py-6 space-y-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-inner">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div className="space-y-1">
-              <p className="font-bold text-stone-800">Have questions about {lesson.title}?</p>
-              <p className="text-[11px] text-stone-500 max-w-xs mx-auto">
-                Ask Akib Sir to clarify pronunciations, provide sentence examples, or test your speaking!
-              </p>
-            </div>
-
-            {/* Quick Starters */}
-            <div className="flex flex-col gap-1.5 pt-2 max-w-xs mx-auto">
-              <button
-                type="button"
-                onClick={() => handleSend(undefined, "Can you give me 3 practical sentence examples for this lesson?")}
-                className="text-left px-3 py-1.5 rounded-lg border border-emerald-200 bg-white hover:bg-emerald-50 text-stone-700 transition cursor-pointer"
-              >
-                &bull; Give 3 practical sentence examples
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSend(undefined, "Quiz me on this lesson with one question!")}
-                className="text-left px-3 py-1.5 rounded-lg border border-emerald-200 bg-white hover:bg-emerald-50 text-stone-700 transition cursor-pointer"
-              >
-                &bull; Quiz me on this lesson with 1 question
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSend(undefined, "Explain the core concept in simple Hinglish.")}
-                className="text-left px-3 py-1.5 rounded-lg border border-emerald-200 bg-white hover:bg-emerald-50 text-stone-700 transition cursor-pointer"
-              >
-                &bull; Explain in simple Hinglish
-              </button>
-            </div>
+          <div className="py-8 text-center text-stone-400 space-y-2.5">
+            <div className="text-3xl">👋</div>
+            <p className="text-xs sm:text-sm font-semibold text-stone-700">
+              Koi doubt hai ya practice sentence check karwana hai?
+            </p>
+            <p className="text-[11px] text-stone-500 max-w-sm mx-auto leading-relaxed">
+              Niche quick prompts chunein ya type karein: <em>&ldquo;Can you check my sentence: I can afford this book?&rdquo;</em>
+            </p>
           </div>
         ) : (
           messages.map((m, idx) => {
@@ -315,8 +316,8 @@ Always provide concise, encouraging, and clear explanations. Use Hinglish sparin
                 className={`group flex items-start gap-1.5 ${isUser ? "justify-end" : "justify-start"}`}
               >
                 {!isUser && (
-                  <div className="w-5 h-5 rounded-md bg-emerald-700 text-white flex items-center justify-center shrink-0 mt-0.5 text-[10px]">
-                    AI
+                  <div className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold shadow-2xs">
+                    AS
                   </div>
                 )}
 
@@ -380,6 +381,8 @@ Always provide concise, encouraging, and clear explanations. Use Hinglish sparin
                       <ReactionBar
                         entityType="ai_chat"
                         entityId={m.id ? `id_${m.id}` : `idx_${idx}_${lesson.id}`}
+                        ownerId={isUser ? currentUser?.id : undefined}
+                        contentPreview={m.content}
                         align={isUser ? "right" : "left"}
                       />
 
@@ -420,9 +423,9 @@ Always provide concise, encouraging, and clear explanations. Use Hinglish sparin
         )}
 
         {isLoading && (
-          <div className="flex items-center gap-2 text-stone-400 text-xs italic">
-            <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
-            <span>Akib Sir is thinking...</span>
+          <div className="flex items-center gap-2 text-emerald-700 text-xs font-medium animate-pulse py-1">
+            <span className="inline-block w-2 h-2 rounded-full bg-emerald-600"></span>
+            <span>Akib Sir is thinking and writing your feedback...</span>
           </div>
         )}
 
@@ -434,19 +437,54 @@ Always provide concise, encouraging, and clear explanations. Use Hinglish sparin
         )}
       </div>
 
+      {/* Quick Prompts Chips from reference repo */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 px-2.5 pt-2 scrollbar-none text-[11px] border-t border-stone-100 bg-stone-50/70">
+        <span className="text-stone-400 font-semibold whitespace-nowrap text-[10px] uppercase tracking-wider">
+          Quick:
+        </span>
+        <button
+          type="button"
+          onClick={() => setInput("Check my sentence: ")}
+          className="px-2.5 py-1 bg-white hover:bg-stone-100 text-stone-700 rounded-full font-medium whitespace-nowrap transition cursor-pointer border border-stone-200 text-[11px] shadow-2xs"
+        >
+          ✍️ Correct my sentence
+        </button>
+        <button
+          type="button"
+          onClick={() => handleSend(undefined, "Can you explain this lesson in simpler Hinglish with a fresh analogy?")}
+          className="px-2.5 py-1 bg-white hover:bg-stone-100 text-stone-700 rounded-full font-medium whitespace-nowrap transition cursor-pointer border border-stone-200 text-[11px] shadow-2xs"
+        >
+          💡 Simpler Hinglish
+        </button>
+        <button
+          type="button"
+          onClick={() => handleSend(undefined, "Give me 2 natural everyday sentences using these words in Indian workplace or daily life.")}
+          className="px-2.5 py-1 bg-white hover:bg-stone-100 text-stone-700 rounded-full font-medium whitespace-nowrap transition cursor-pointer border border-stone-200 text-[11px] shadow-2xs"
+        >
+          🗣️ Real-life examples
+        </button>
+        <button
+          type="button"
+          onClick={() => handleSend(undefined, "Ask me 1 quick fill-in-the-blank question to test my understanding of this lesson.")}
+          className="px-2.5 py-1 bg-white hover:bg-stone-100 text-stone-700 rounded-full font-medium whitespace-nowrap transition cursor-pointer border border-stone-200 text-[11px] shadow-2xs"
+        >
+          🎯 Quiz me
+        </button>
+      </div>
+
       {/* Input Box */}
-      <form onSubmit={(e) => handleSend(e)} className="p-2.5 border-t border-stone-200 bg-white flex gap-1.5">
+      <form onSubmit={(e) => handleSend(e)} className="p-2 border-t border-stone-200 bg-white flex gap-1.5">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask Akib Sir a question..."
+          placeholder="Ask Akib Sir a question or check a sentence..."
           className="flex-1 px-3 py-2 text-xs rounded-xl border border-stone-300 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition"
         />
         <button
           type="submit"
           disabled={!input.trim() || isLoading}
-          className="px-3 py-2 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-40 text-white rounded-xl transition flex items-center justify-center cursor-pointer shadow-xs"
+          className="px-3.5 py-2 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-40 text-white rounded-xl transition flex items-center justify-center cursor-pointer shadow-xs"
         >
           <Send className="w-3.5 h-3.5" />
         </button>

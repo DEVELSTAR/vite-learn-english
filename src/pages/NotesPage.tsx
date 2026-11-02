@@ -820,7 +820,13 @@ export default function NotesPage() {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <ReactionBar entityType="note" entityId={note.id} align="right" />
+                    <ReactionBar
+                      entityType="note"
+                      entityId={note.id}
+                      ownerId={note.user_id}
+                      contentPreview={note.content}
+                      align="right"
+                    />
 
                     <div className="flex items-center gap-1 pl-1 border-l border-stone-200">
                       {canEdit && (

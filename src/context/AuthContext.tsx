@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs"
 import { User, UserRole } from "../types/database"
 import { supabase, isSupabaseConfigured } from "../lib/supabase"
 import { MOCK_USERS } from "../lib/mockData"
+import { logActivity } from "../lib/activityHistory"
+import { saveStudentPassword } from "../lib/studentPasswords"
 
 interface AuthContextType {
   currentUser: User | null
@@ -78,7 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return bcrypt.hashSync(password, 10)
   }
 
-  // 1. Student / General Login
+  // 1. Student / General Login (Strictly for students role 0)
   const login = async (email: string, password: string) => {
     const cleanEmail = email.trim().toLowerCase()
 
@@ -96,12 +98,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return { success: false, error: "No account found with this email address." }
         }
 
+        // Enforce boundary: Students only in student login
+        if (userRecord.role !== 0) {
+          return {
+            success: false,
+            error: "Administrators cannot sign in through the Student Portal. Please sign in via the Admin Portal.",
+          }
+        }
+
         const valid = verifyPassword(password, userRecord.password_digest)
         if (!valid) {
           return { success: false, error: "Incorrect password. Please try again." }
         }
 
         saveSession(userRecord as User)
+        saveStudentPassword(userRecord.id, password)
+        logActivity({
+          user_id: userRecord.id,
+          user_name: userRecord.name,
+          user_email: userRecord.email_address,
+          user_role: 0,
+          action: "login",
+          resource_type: "auth",
+          details: "Student logged into the Student Portal",
+        })
         return { success: true }
       } catch (err: any) {
         console.error("Login database error:", err)
@@ -112,8 +132,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Mock Login Fallback
     const mockUser = MOCK_USERS.find((u) => u.email_address.toLowerCase() === cleanEmail)
     if (mockUser) {
-      // Mock matches any password for ease of test, or 'asdasd'
+      if (mockUser.role !== 0) {
+        return {
+          success: false,
+          error: "Administrators cannot sign in through the Student Portal. Please use the Admin Portal.",
+        }
+      }
       saveSession(mockUser)
+      saveStudentPassword(mockUser.id, password)
+      logActivity({
+        user_id: mockUser.id,
+        user_name: mockUser.name,
+        user_email: mockUser.email_address,
+        user_role: 0,
+        action: "login",
+        resource_type: "auth",
+        details: "Student logged into the Student Portal",
+      })
       return { success: true }
     }
 
@@ -144,6 +179,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               role: 2,
             }
             saveSession(superUser)
+            logActivity({
+              user_id: 1,
+              user_name: "Super Admin",
+              user_email: "star@gmail.com",
+              user_role: 2,
+              action: "login",
+              resource_type: "auth",
+              details: "Super Admin logged into the Admin Control Panel",
+            })
             return { success: true }
           }
           return { success: false, error: "No admin account found with this email." }
@@ -166,6 +210,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         saveSession(userRecord as User)
+        logActivity({
+          user_id: userRecord.id,
+          user_name: userRecord.name,
+          user_email: userRecord.email_address,
+          user_role: userRecord.role,
+          action: "login",
+          resource_type: "auth",
+          details: "Admin logged into the Admin Control Panel",
+        })
         return { success: true }
       } catch (err: any) {
         console.error("Admin login error:", err)
@@ -178,6 +231,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             role: 2,
           }
           saveSession(superUser)
+          logActivity({
+            user_id: 1,
+            user_name: "Super Admin",
+            user_email: "star@gmail.com",
+            user_role: 2,
+            action: "login",
+            resource_type: "auth",
+            details: "Super Admin logged into the Admin Control Panel",
+          })
           return { success: true }
         }
         return { success: false, error: err?.message || "Admin login failed." }
@@ -193,6 +255,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: 2 as UserRole,
       }
       saveSession(superUser)
+      logActivity({
+        user_id: 1,
+        user_name: "Super Admin",
+        user_email: "star@gmail.com",
+        user_role: 2,
+        action: "login",
+        resource_type: "auth",
+        details: "Super Admin logged into the Admin Control Panel",
+      })
       return { success: true }
     }
 
@@ -201,6 +272,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     )
     if (mockAdmin) {
       saveSession(mockAdmin)
+      logActivity({
+        user_id: mockAdmin.id,
+        user_name: mockAdmin.name,
+        user_email: mockAdmin.email_address,
+        user_role: mockAdmin.role,
+        action: "login",
+        resource_type: "auth",
+        details: "Admin logged into the Admin Control Panel",
+      })
       return { success: true }
     }
 
@@ -250,6 +330,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (error) throw error
 
         saveSession(newUser as User)
+        saveStudentPassword(newUser.id, password)
+        logActivity({
+          user_id: newUser.id,
+          user_name: newUser.name,
+          user_email: newUser.email_address,
+          user_role: 0,
+          action: "signup",
+          resource_type: "auth",
+          details: "New student account registered",
+        })
         return { success: true }
       } catch (err: any) {
         return { success: false, error: err?.message || "Registration failed." }
@@ -266,6 +356,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updated_at: new Date().toISOString(),
     }
     saveSession(newStudent)
+    saveStudentPassword(newStudent.id, password)
+    logActivity({
+      user_id: newStudent.id,
+      user_name: newStudent.name,
+      user_email: newStudent.email_address,
+      user_role: 0,
+      action: "signup",
+      resource_type: "auth",
+      details: "New student account registered (offline mode)",
+    })
     return { success: true }
   }
 
@@ -310,6 +410,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .single()
 
     if (error) throw error
+
+    saveStudentPassword(data.id, password)
+    logActivity({
+      user_id: currentUser?.id || 1,
+      user_name: currentUser?.name || "Admin",
+      user_email: currentUser?.email_address || "",
+      user_role: currentUser?.role || 1,
+      action: "create",
+      resource_type: "user",
+      resource_id: data.id,
+      resource_title: data.name,
+      details: `Admin enrolled student: ${data.name} (${data.email_address})`,
+    })
+
     return data as User
   }
 
@@ -336,6 +450,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .single()
 
     if (error) throw error
+
+    if (fields.password && fields.password.trim().length >= 6) {
+      saveStudentPassword(id, fields.password.trim())
+    }
+
+    logActivity({
+      user_id: currentUser?.id || 1,
+      user_name: currentUser?.name || "Admin",
+      user_email: currentUser?.email_address || "",
+      user_role: currentUser?.role || 1,
+      action: "update",
+      resource_type: "user",
+      resource_id: id,
+      details: `Admin updated student record #${id}`,
+    })
+
     return data as User
   }
 
@@ -343,6 +473,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!supabase) return
     const { error } = await supabase.from("users").delete().eq("id", id)
     if (error) throw error
+
+    logActivity({
+      user_id: currentUser?.id || 1,
+      user_name: currentUser?.name || "Admin",
+      user_email: currentUser?.email_address || "",
+      user_role: currentUser?.role || 1,
+      action: "destroy",
+      resource_type: "user",
+      resource_id: id,
+      details: `Admin deleted student account #${id}`,
+    })
   }
 
   // ===============================================
