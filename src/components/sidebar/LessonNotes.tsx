@@ -25,6 +25,7 @@ import {
 } from "../../lib/supabase"
 import ReactionBar from "../common/ReactionBar"
 import { formatTimeAgo } from "../../lib/dateUtils"
+import { getUserProfileIcon } from "../../lib/profileIcons"
 
 interface LessonNotesProps {
   lesson: Lesson
@@ -233,14 +234,20 @@ export default function LessonNotes({ lesson, onNotesCountChange }: LessonNotesP
                 {/* Note Subheader */}
                 <div className="flex items-center justify-between text-[10px] text-stone-400 gap-2">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="font-semibold text-stone-700">
-                      {note.user?.name || "Community"}
-                    </span>
-                    {note.user?.role !== undefined && note.user.role >= 1 && (
-                      <span className="text-[9px] bg-stone-100 text-stone-600 px-1 py-0.2 rounded font-semibold border border-stone-200">
-                        Teacher
+                    {/* Author Profile Icon (No background, replaces name) */}
+                    <div
+                      className="flex items-center gap-1 cursor-pointer"
+                      title={note.user?.name || "Student"}
+                    >
+                      <span className="text-lg leading-none select-none">
+                        {getUserProfileIcon(note.user)}
                       </span>
-                    )}
+                      {note.user?.role !== undefined && note.user.role >= 1 && (
+                        <span className="text-[9px] bg-stone-100 text-stone-600 px-1 py-0.2 rounded font-semibold border border-stone-200">
+                          Teacher
+                        </span>
+                      )}
+                    </div>
                     {note.is_global ? (
                       <span className="text-[9px] bg-stone-100 text-stone-500 px-1.5 py-0.2 rounded font-medium">
                         Public

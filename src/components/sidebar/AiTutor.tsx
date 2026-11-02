@@ -530,7 +530,7 @@ export default function AiTutor({ lesson }: AiTutorProps) {
                       <ReactionBar
                         entityType="ai_chat"
                         entityId={m.id ? `id_${m.id}` : `idx_${idx}_${lesson.id}`}
-                        ownerId={isUser ? currentUser?.id : undefined}
+                        ownerId={currentUser?.id}
                         contentPreview={m.content}
                         align={isUser ? "right" : "left"}
                       />

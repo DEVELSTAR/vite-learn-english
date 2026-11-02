@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react"
 import { useAuth } from "../context/AuthContext"
 import { getStudentPassword } from "../lib/studentPasswords"
 import { formatISTDate } from "../lib/dateUtils"
+import { getUserProfileIcon, PROFILE_ICON_OPTIONS } from "../lib/profileIcons"
 import {
   User,
   Mail,
@@ -28,6 +29,7 @@ export default function ProfilePage() {
   // Profile Form States
   const [name, setName] = useState(currentUser?.name || "")
   const [email, setEmail] = useState(currentUser?.email_address || "")
+  const [selectedIcon, setSelectedIcon] = useState<string>(getUserProfileIcon(currentUser))
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
 
@@ -110,6 +112,7 @@ export default function ProfilePage() {
         name: name.trim(),
         email_address: email.trim().toLowerCase(),
         password: newPassword ? newPassword.trim() : undefined,
+        profile_icon: selectedIcon,
       })
 
       if (!res.success) {
@@ -139,8 +142,8 @@ export default function ProfilePage() {
       {/* Header Profile Badge */}
       <div className="bg-white border border-stone-200 rounded-3xl p-6 sm:p-8 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-emerald-800 text-white font-bold text-2xl flex items-center justify-center shadow-md shrink-0">
-            {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : "U"}
+          <div className="text-5xl sm:text-6xl select-none shrink-0 transition-transform hover:scale-110" title="Your Profile Icon">
+            {selectedIcon}
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -283,11 +286,49 @@ export default function ProfilePage() {
             <div>
               <h2 className="text-base font-bold text-stone-900">Edit Profile & Credentials</h2>
               <p className="text-xs text-stone-500 mt-1">
-                Update your display name, email address, or set a new password.
+                Customize your background-free profile icon, display name, email address, or update your password.
               </p>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-5">
+              {/* Profile Icon Picker (No Background) */}
+              <div className="space-y-2.5 pb-4 border-b border-stone-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-900">
+                      Profile Icon (No Background)
+                    </label>
+                    <p className="text-[11px] text-stone-500">
+                      This icon represents you across study notes and daily classes.
+                    </p>
+                  </div>
+                  <div className="text-4xl select-none" title="Current selected icon">
+                    {selectedIcon}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-6 sm:grid-cols-8 gap-2 p-3 bg-stone-50/80 rounded-2xl border border-stone-200/80 max-h-48 overflow-y-auto">
+                  {PROFILE_ICON_OPTIONS.map((opt) => {
+                    const isSelected = selectedIcon === opt.icon
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setSelectedIcon(opt.icon)}
+                        className={`h-11 rounded-xl flex items-center justify-center transition cursor-pointer select-none text-2xl hover:scale-120 ${
+                          isSelected
+                            ? "ring-2 ring-emerald-600 bg-white shadow-xs scale-110"
+                            : "hover:bg-white/80"
+                        }`}
+                        title={opt.label}
+                      >
+                        <span className="leading-none">{opt.icon}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-stone-700 mb-1.5">Full Name</label>
                 <div className="relative">

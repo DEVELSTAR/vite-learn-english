@@ -5,6 +5,7 @@ import { supabase, isSupabaseConfigured } from "../lib/supabase"
 import { MOCK_USERS } from "../lib/mockData"
 import { logActivity } from "../lib/activityHistory"
 import { saveStudentPassword } from "../lib/studentPasswords"
+import { saveUserProfileIcon } from "../lib/profileIcons"
 
 interface AuthContextType {
   currentUser: User | null
@@ -15,7 +16,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   adminLogin: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   register: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>
-  updateProfile: (data: { name?: string; email_address?: string; password?: string }) => Promise<{ success: boolean; error?: string }>
+  updateProfile: (data: { name?: string; email_address?: string; password?: string; profile_icon?: string }) => Promise<{ success: boolean; error?: string }>
   logout: () => void
   // Student Management (CRUD)
   fetchStudents: () => Promise<User[]>
@@ -375,6 +376,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     name?: string
     email_address?: string
     password?: string
+    profile_icon?: string
   }): Promise<{ success: boolean; error?: string }> => {
     if (!currentUser) {
       return { success: false, error: "You must be signed in to update your profile." }
@@ -397,6 +399,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       payload.password_digest = hashPassword(data.password.trim())
     }
 
+    if (data.profile_icon) {
+      await saveUserProfileIcon(currentUser.id, data.profile_icon)
+    }
+
     if (isSupabaseConfigured && supabase) {
       try {
         const { data: updated, error } = await supabase
@@ -412,7 +418,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await saveStudentPassword(currentUser.id, data.password.trim())
         }
 
-        saveSession(updated as User)
+        const sessionUser: User = {
+          ...(updated as User),
+          profile_icon: data.profile_icon || currentUser.profile_icon,
+        }
+        saveSession(sessionUser)
         logActivity({
           user_id: currentUser.id,
           user_name: updated.name,
@@ -436,6 +446,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...currentUser,
       ...(payload.name ? { name: payload.name } : {}),
       ...(payload.email_address ? { email_address: payload.email_address } : {}),
+      profile_icon: data.profile_icon || currentUser.profile_icon,
       updated_at: payload.updated_at,
     }
     if (data.password && data.password.trim()) {

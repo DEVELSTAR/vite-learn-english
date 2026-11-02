@@ -9,6 +9,7 @@ export interface User {
   email_address: string
   password_digest?: string
   role: UserRole
+  profile_icon?: string
   created_at?: string
   updated_at?: string
 }

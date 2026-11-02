@@ -72,7 +72,7 @@ export default function ReactionBar({
     setShowPicker(false)
 
     // If a reaction was added, send notification to owner if present
-    if (isAdding && ownerId && ownerId !== currentUser.id) {
+    if (isAdding && ownerId) {
       addReactionNotification({
         ownerId,
         actorId: currentUser.id,

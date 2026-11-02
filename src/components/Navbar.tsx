@@ -23,9 +23,11 @@ import {
   markNotificationAsRead,
   markAllNotificationsAsRead,
   clearUserNotifications,
+  syncNotificationsFromDatabase,
   NotificationItem,
 } from "../lib/notifications"
 import { formatTimeAgo } from "../lib/dateUtils"
+import { getUserProfileIcon } from "../lib/profileIcons"
 
 export default function Navbar() {
   const { currentUser, isAdmin, logout } = useAuth()
@@ -53,6 +55,12 @@ export default function Navbar() {
 
   useEffect(() => {
     reloadNotifications()
+
+    if (currentUser?.id) {
+      syncNotificationsFromDatabase(currentUser.id).then(() => {
+        reloadNotifications()
+      })
+    }
 
     const handleUpdate = () => reloadNotifications()
     window.addEventListener("learn_english_notifications_updated", handleUpdate)
@@ -293,7 +301,7 @@ export default function Navbar() {
                   }`}
                   title="My Profile & Settings"
                 >
-                  <User className="w-3.5 h-3.5 text-emerald-700" />
+                  <span className="text-base select-none leading-none">{getUserProfileIcon(currentUser)}</span>
                   <span className="font-semibold">{currentUser.name}</span>
                 </Link>
 
@@ -351,9 +359,9 @@ export default function Navbar() {
                 className="px-3 py-2 bg-stone-50 hover:bg-stone-100 rounded-xl flex items-center justify-between text-xs transition"
               >
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-emerald-800 text-white font-bold flex items-center justify-center text-xs">
-                    {currentUser.name.charAt(0).toUpperCase()}
-                  </div>
+                  <span className="text-2xl select-none leading-none shrink-0">
+                    {getUserProfileIcon(currentUser)}
+                  </span>
                   <div>
                     <span className="font-bold text-stone-900 block leading-tight">{currentUser.name}</span>
                     <span className="text-[10px] text-stone-500 font-mono">{currentUser.email_address}</span>

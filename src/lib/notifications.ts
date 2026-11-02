@@ -16,6 +16,39 @@ export interface NotificationItem {
 
 const LOCAL_STORAGE_KEY = "learn_english_notifications"
 
+// 1. Multi-Tab BroadcastChannel
+let notifBc: BroadcastChannel | null = null
+try {
+  if (typeof BroadcastChannel !== "undefined") {
+    notifBc = new BroadcastChannel("learn_english_notifications_channel")
+    notifBc.onmessage = (event) => {
+      if (event.data?.type === "notification_received" && event.data.notification) {
+        addLocalNotificationItem(event.data.notification, false)
+      }
+    }
+  }
+} catch {
+  // ignore
+}
+
+// 2. Supabase Realtime Channel for live cross-user notifications
+let realtimeNotifChannel: any = null
+if (isSupabaseConfigured && supabase) {
+  try {
+    realtimeNotifChannel = supabase.channel("live_notifications_channel")
+    realtimeNotifChannel
+      .on("broadcast", { event: "live_notification" }, (envelope: any) => {
+        const item = envelope.payload as NotificationItem
+        if (item && item.id) {
+          addLocalNotificationItem(item, false)
+        }
+      })
+      .subscribe()
+  } catch (err) {
+    console.warn("Could not subscribe to live notifications channel:", err)
+  }
+}
+
 function getLocalNotifications(): NotificationItem[] {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY)
@@ -26,12 +59,32 @@ function getLocalNotifications(): NotificationItem[] {
   }
 }
 
-function saveLocalNotifications(items: NotificationItem[]) {
+function saveLocalNotifications(items: NotificationItem[], shouldBroadcast = true) {
   try {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items))
     window.dispatchEvent(new CustomEvent("learn_english_notifications_updated"))
   } catch (e) {
     console.warn("Failed to persist notifications:", e)
+  }
+}
+
+function addLocalNotificationItem(item: NotificationItem, broadcast = true) {
+  const current = getLocalNotifications()
+  // Avoid duplicate notifications by id
+  if (current.some((n) => n.id === item.id)) return
+
+  const updated = [item, ...current.slice(0, 99)]
+  saveLocalNotifications(updated, broadcast)
+
+  if (broadcast && notifBc) {
+    try {
+      notifBc.postMessage({
+        type: "notification_received",
+        notification: item,
+      })
+    } catch {
+      // ignore
+    }
   }
 }
 
@@ -46,6 +99,45 @@ export function getUnreadCount(userId: number): number {
   return getUserNotifications(userId).filter((n) => !n.read).length
 }
 
+export async function syncNotificationsFromDatabase(userId: number): Promise<void> {
+  if (!isSupabaseConfigured || !supabase || !userId) return
+  try {
+    const { data, error } = await supabase
+      .from("action_text_rich_texts")
+      .select("body, created_at")
+      .eq("record_type", "Notification")
+      .eq("record_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(50)
+
+    if (!error && data) {
+      const current = getLocalNotifications()
+      const existingIds = new Set(current.map((n) => n.id))
+      const fetchedItems: NotificationItem[] = []
+
+      for (const row of data) {
+        try {
+          if (row.body) {
+            const parsed = JSON.parse(row.body) as NotificationItem
+            if (parsed && parsed.id && !existingIds.has(parsed.id)) {
+              fetchedItems.push(parsed)
+              existingIds.add(parsed.id)
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      if (fetchedItems.length > 0) {
+        saveLocalNotifications([...fetchedItems, ...current].slice(0, 100), false)
+      }
+    }
+  } catch (e) {
+    console.warn("Error syncing notifications from Supabase:", e)
+  }
+}
+
 export async function addReactionNotification(params: {
   ownerId: number
   actorId: number
@@ -57,12 +149,16 @@ export async function addReactionNotification(params: {
 }): Promise<void> {
   const { ownerId, actorId, actorName, entityType, entityId, emoji, contentPreview } = params
 
-  // Do not notify if user reacted to their own content
-  if (ownerId === actorId) return
+  if (!ownerId) return
 
   let typeLabel = "study note"
   if (entityType === "comment") typeLabel = "discussion comment"
   if (entityType === "ai_chat") typeLabel = "message"
+
+  const isSelf = ownerId === actorId
+  const message = isSelf
+    ? `You reacted ${emoji} to your ${typeLabel}.`
+    : `${actorName} reacted ${emoji} to your ${typeLabel}.`
 
   const newNotification: NotificationItem = {
     id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -72,17 +168,29 @@ export async function addReactionNotification(params: {
     entity_type: entityType,
     entity_id: entityId,
     emoji,
-    message: `${actorName} reacted ${emoji} to your ${typeLabel}.`,
+    message,
     content_preview: contentPreview ? contentPreview.slice(0, 80) : undefined,
     created_at: new Date().toISOString(),
     read: false,
   }
 
-  // 1. Save locally
-  const current = getLocalNotifications()
-  saveLocalNotifications([newNotification, ...current.slice(0, 99)])
+  // 1. Save locally and broadcast to other open tabs
+  addLocalNotificationItem(newNotification, true)
 
-  // 2. Persist to Supabase action_text_rich_texts if available
+  // 2. Broadcast via Supabase Realtime channel to other online browsers/users
+  if (realtimeNotifChannel) {
+    try {
+      realtimeNotifChannel.send({
+        type: "broadcast",
+        event: "live_notification",
+        payload: newNotification,
+      })
+    } catch (e) {
+      console.warn("Realtime notification broadcast error:", e)
+    }
+  }
+
+  // 3. Persist to Supabase action_text_rich_texts
   if (isSupabaseConfigured && supabase) {
     try {
       await supabase.from("action_text_rich_texts").insert({
@@ -116,4 +224,3 @@ export function clearUserNotifications(userId: number) {
   const filtered = all.filter((n) => n.recipient_id !== userId)
   saveLocalNotifications(filtered)
 }
-

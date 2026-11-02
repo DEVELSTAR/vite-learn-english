@@ -32,6 +32,7 @@ import {
 } from "lucide-react"
 import ReactionBar from "../components/common/ReactionBar"
 import { formatTimeAgo } from "../lib/dateUtils"
+import { getUserProfileIcon } from "../lib/profileIcons"
 
 type FilterTab = "all" | "general" | "lesson" | "shared" | "mine"
 
@@ -251,7 +252,7 @@ export default function NotesPage() {
     : null
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6 overflow-x-hidden">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-stone-200 pb-4">
         <div>
@@ -370,8 +371,8 @@ export default function NotesPage() {
             </div>
 
             {/* Optional Lesson Picker */}
-            <div className="flex flex-wrap items-center gap-3 text-xs text-stone-600">
-              <label htmlFor="note_lesson_select" className="font-semibold text-stone-700">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 text-xs text-stone-600 w-full min-w-0">
+              <label htmlFor="note_lesson_select" className="font-semibold text-stone-700 shrink-0">
                 Link to Lesson:
               </label>
               <select
@@ -380,15 +381,19 @@ export default function NotesPage() {
                 onChange={(e) =>
                   setFormLessonId(e.target.value ? parseInt(e.target.value, 10) : null)
                 }
-                className="px-3 py-1.5 rounded-lg border border-stone-300 bg-white text-xs text-stone-800 focus:outline-none focus:border-stone-900"
+                className="w-full sm:max-w-md max-w-full min-w-0 px-3 py-2 rounded-xl border border-stone-300 bg-white text-xs text-stone-800 focus:outline-none focus:border-stone-900 truncate"
               >
                 <option value="">General Note (No Lesson)</option>
-                {lessonsList.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.lesson_type === 1 ? "[Topic] " : "[Class] "}
-                    {l.title}
-                  </option>
-                ))}
+                {lessonsList.map((l) => {
+                  const prefix = l.lesson_type === 1 ? "[Topic] " : "[Class] "
+                  const displayTitle = l.title.length > 40 ? `${l.title.slice(0, 40)}...` : l.title
+                  return (
+                    <option key={l.id} value={l.id} title={l.title}>
+                      {prefix}
+                      {displayTitle}
+                    </option>
+                  )
+                })}
               </select>
             </div>
 
@@ -738,10 +743,13 @@ export default function NotesPage() {
                 {/* Note Header */}
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 flex-wrap">
-                    {/* Author Name */}
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-xs text-stone-900">
-                        {note.user?.name || "Community"}
+                    {/* Author Profile Icon (No background, replaces name in notes) */}
+                    <div
+                      className="flex items-center gap-1.5 cursor-pointer"
+                      title={note.user?.name || "Student"}
+                    >
+                      <span className="text-xl sm:text-2xl leading-none select-none transition-transform hover:scale-115">
+                        {getUserProfileIcon(note.user)}
                       </span>
                       {note.user?.role !== undefined && note.user.role >= 1 && (
                         <span className="text-[10px] bg-stone-100 text-stone-600 px-1.5 py-0.5 rounded font-semibold border border-stone-200">
