@@ -1,5 +1,28 @@
 import React, { useState, useEffect, useRef } from "react"
-import { Send, Bot, User, Sparkles, AlertCircle, Loader2, Pencil, Trash2, Check, X, RotateCcw, Menu, ChevronDown, BookOpen } from "lucide-react"
+import {
+  Send,
+  Bot,
+  User,
+  Sparkles,
+  AlertCircle,
+  Loader2,
+  Pencil,
+  Trash2,
+  Check,
+  X,
+  RotateCcw,
+  Menu,
+  ChevronDown,
+  BookOpen,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  Play,
+  Pause,
+  Square,
+  Radio,
+} from "lucide-react"
 import { Lesson } from "../../types/database"
 import { useAuth } from "../../context/AuthContext"
 import {
@@ -10,6 +33,18 @@ import {
   clearLessonChatMessages,
 } from "../../lib/supabase"
 import { sendGeminiChatMessage } from "../../lib/gemini"
+import {
+  speakText,
+  stopSpeaking,
+  pauseSpeaking,
+  resumeSpeaking,
+  isSpeaking,
+  isSpeechSynthesisSupported,
+  isMediaRecorderSupported,
+  isSpeechRecognitionSupported,
+  AudioRecorder,
+  LiveSpeechRecognizer,
+} from "../../lib/voice"
 import ReactionBar from "../common/ReactionBar"
 
 interface Message {
@@ -17,6 +52,8 @@ interface Message {
   role: "user" | "model"
   content: string
   created_at?: string
+  isVoice?: boolean
+  audioUrl?: string
 }
 
 interface AiTutorProps {
@@ -108,8 +145,13 @@ TEACHING & RESPONSE GUIDELINES:
      c. Provide the natural, native alternative in bold.
      d. Explain the 'why' in simple Hinglish so they remember the concept.
 3. Practice Encouragement:
-   - Keep answers concise (under 150-200 words) so the student isn't overwhelmed.
-   - End with a quick follow-up question or micro-challenge asking them to make a sentence using one of the words.`
+   - Keep answers concise (under 130-180 words) so the student isn't overwhelmed.
+   - End with a quick follow-up question or micro-challenge asking them to make a sentence using one of the words.
+4. Voice & Spoken English Assistance:
+   - If the student asks by voice or shares spoken practice:
+     a. Greet them warmly and encourage their spoken effort.
+     b. Give specific encouraging feedback on their spoken phrasing, word choice, and pronunciation tips.
+     c. Write in smooth, spoken-friendly Hinglish and English (natural pauses, conversational sentences) because your response will be read aloud to them in audio!`
 }
 
 export default function AiTutor({ lesson }: AiTutorProps) {
@@ -120,6 +162,20 @@ export default function AiTutor({ lesson }: AiTutorProps) {
   const [error, setError] = useState<string | null>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const isInitialMount = useRef(true)
+
+  // Voice model state
+  const [voiceEnabled, setVoiceEnabled] = useState(true)
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingSeconds, setRecordingSeconds] = useState(0)
+  const [liveTranscript, setLiveTranscript] = useState("")
+  const [recordingError, setRecordingError] = useState<string | null>(null)
+  const [speakingMsgIdx, setSpeakingMsgIdx] = useState<number | null>(null)
+  const [speechRate, setSpeechRate] = useState<number>(1.0)
+
+  const recorderRef = useRef<AudioRecorder | null>(null)
+  const recognizerRef = useRef<LiveSpeechRecognizer | null>(null)
+  const timerRef = useRef<any>(null)
+  const stopSpeakingRef = useRef<(() => void) | null>(null)
 
   // Editing state
   const [editingIdx, setEditingIdx] = useState<number | null>(null)
@@ -132,18 +188,35 @@ export default function AiTutor({ lesson }: AiTutorProps) {
 
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY || ""
 
+  // Cleanup voice & recording on unmount
+  useEffect(() => {
+    return () => {
+      stopSpeaking()
+      if (timerRef.current) clearInterval(timerRef.current)
+      recorderRef.current?.cancel()
+      recognizerRef.current?.cancel()
+    }
+  }, [])
+
   useEffect(() => {
     async function loadHistory() {
       if (currentUser?.id) {
         const history = await fetchLessonChatMessages(lesson.id, currentUser.id)
         if (history && history.length > 0) {
           setMessages(
-            history.map((m) => ({
-              id: m.id,
-              role: m.role === "assistant" || m.role === "model" ? "model" : "user",
-              content: m.content,
-              created_at: m.created_at,
-            }))
+            history.map((m) => {
+              const isVoice = m.content.startsWith("🎙️ [Voice Question]")
+              const cleanContent = isVoice
+                ? m.content.replace(/^🎙️ \[Voice Question\]\s*/, "")
+                : m.content
+              return {
+                id: m.id,
+                role: m.role === "assistant" || m.role === "model" ? "model" : "user",
+                content: cleanContent,
+                created_at: m.created_at,
+                isVoice,
+              }
+            })
           )
         }
       }
@@ -166,26 +239,165 @@ export default function AiTutor({ lesson }: AiTutorProps) {
     })
   }, [messages, isLoading])
 
-  const handleSend = async (e?: React.FormEvent, customPrompt?: string) => {
+  // Speak model reply with sentence chunking
+  const speakModelReply = async (text: string, msgIdx: number, rate = speechRate) => {
+    stopSpeakingRef.current?.()
+    setSpeakingMsgIdx(msgIdx)
+
+    try {
+      const cancel = await speakText(text, {
+        rate,
+        onStart: () => setSpeakingMsgIdx(msgIdx),
+        onEnd: () => setSpeakingMsgIdx(null),
+        onError: () => setSpeakingMsgIdx(null),
+      })
+      stopSpeakingRef.current = cancel
+    } catch (err) {
+      console.warn("Speech error:", err)
+      setSpeakingMsgIdx(null)
+    }
+  }
+
+  const handleStopSpeaking = () => {
+    stopSpeakingRef.current?.()
+    stopSpeaking()
+    setSpeakingMsgIdx(null)
+  }
+
+  const handleCycleSpeed = (idx: number, content: string) => {
+    const speeds = [1.0, 0.85, 1.15]
+    const nextIdx = (speeds.indexOf(speechRate) + 1) % speeds.length
+    const nextSpeed = speeds[nextIdx]
+    setSpeechRate(nextSpeed)
+    if (speakingMsgIdx === idx) {
+      speakModelReply(content, idx, nextSpeed)
+    }
+  }
+
+  // Recording controls
+  const handleStartRecording = async () => {
+    stopSpeakingRef.current?.()
+    stopSpeaking()
+    setSpeakingMsgIdx(null)
+    setRecordingError(null)
+    setLiveTranscript("")
+    setRecordingSeconds(0)
+
+    try {
+      const recorder = new AudioRecorder()
+      await recorder.start()
+      recorderRef.current = recorder
+      setIsRecording(true)
+
+      // 60-second safety timer
+      timerRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => {
+          if (prev >= 60) {
+            handleFinishRecordingAndSend()
+            return prev
+          }
+          return prev + 1
+        })
+      }, 1000)
+
+      if (isSpeechRecognitionSupported()) {
+        const recognizer = new LiveSpeechRecognizer()
+        recognizer.start({
+          onInterimResult: (text) => setLiveTranscript(text),
+          onFinalResult: (text) => setLiveTranscript(text),
+        })
+        recognizerRef.current = recognizer
+      }
+    } catch (err: any) {
+      console.error("Recording start error:", err)
+      setRecordingError(err.message || "Microphone access failed. Please allow microphone permissions.")
+      setIsRecording(false)
+    }
+  }
+
+  const handleCancelRecording = () => {
+    if (timerRef.current) clearInterval(timerRef.current)
+    recorderRef.current?.cancel()
+    recognizerRef.current?.cancel()
+    recorderRef.current = null
+    recognizerRef.current = null
+    setIsRecording(false)
+    setLiveTranscript("")
+    setRecordingSeconds(0)
+  }
+
+  const handleFinishRecordingAndSend = async () => {
+    if (!recorderRef.current) return
+    if (timerRef.current) clearInterval(timerRef.current)
+
+    setIsRecording(false)
+    const finalTranscript = recognizerRef.current?.stop() || liveTranscript.trim()
+    recognizerRef.current = null
+
+    try {
+      const audioResult = await recorderRef.current.stop()
+      recorderRef.current = null
+
+      const questionText = finalTranscript || "Voice Question"
+      await handleSend(undefined, questionText, {
+        isVoice: true,
+        audioUrl: audioResult.url,
+        audioData: {
+          base64: audioResult.base64,
+          mimeType: audioResult.mimeType,
+        },
+      })
+    } catch (err: any) {
+      console.error("Recording stop error:", err)
+      setRecordingError("Could not process voice recording. Please try again.")
+    } finally {
+      setLiveTranscript("")
+      setRecordingSeconds(0)
+    }
+  }
+
+  const handleSend = async (
+    e?: React.FormEvent,
+    customPrompt?: string,
+    voiceMeta?: { isVoice: boolean; audioUrl?: string; audioData?: { base64: string; mimeType: string } }
+  ) => {
     if (e) e.preventDefault()
     const textToSend = customPrompt || input.trim()
-    if (!textToSend || isLoading) return
+    if (!textToSend && !voiceMeta?.audioData) return
+    if (isLoading) return
+
+    stopSpeakingRef.current?.()
+    stopSpeaking()
+    setSpeakingMsgIdx(null)
 
     setInput("")
     setError(null)
+
+    const isVoiceMsg = !!voiceMeta?.isVoice
+    const userMsg: Message = {
+      role: "user",
+      content: textToSend || "🎙️ Voice Question",
+      isVoice: isVoiceMsg,
+      audioUrl: voiceMeta?.audioUrl,
+    }
 
     // Save user message to database if logged in
     let userDbId: number | undefined
     if (currentUser?.id) {
       try {
-        const saved = await saveLessonChatMessage(lesson.id, currentUser.id, "user", textToSend)
+        const saved = await saveLessonChatMessage(
+          lesson.id,
+          currentUser.id,
+          "user",
+          isVoiceMsg ? `🎙️ [Voice Question] ${textToSend}` : textToSend
+        )
         userDbId = saved.id
+        userMsg.id = userDbId
       } catch (err) {
         console.error("Failed to save user chat message:", err)
       }
     }
 
-    const userMsg: Message = { id: userDbId, role: "user", content: textToSend }
     const updatedMessages = [...messages, userMsg]
     setMessages(updatedMessages)
     setIsLoading(true)
@@ -193,9 +405,19 @@ export default function AiTutor({ lesson }: AiTutorProps) {
     try {
       if (!apiKey) {
         await new Promise((r) => setTimeout(r, 800))
-        const demoReply = `Namaste ${currentUser?.name || "Student"}! 🙏 Main aapka **AI English Tutor** Akib Sir hoon.\n\nAapka question tha: *"${textToSend.slice(0, 80)}..."*\n\nLive Google Gemini AI explanations activate karne ke liye please apna free **VITE_GEMINI_API_KEY** configure karein!\n\n**Tip for "${lesson.title}":** Is context ke concepts se ek sentence banayein aur daily practice karein!`
-        setMessages((prev) => [...prev, { role: "model", content: demoReply }])
+        const demoReply = `Namaste ${currentUser?.name || "Student"}! 🙏 Main aapka **AI English Tutor** Akib Sir hoon.\n\nAapka ${
+          isVoiceMsg ? "voice" : ""
+        } question tha: *"${(textToSend || "Voice recording").slice(0, 80)}..."*\n\nLive Google Gemini AI explanations activate karne ke liye please apna free **VITE_GEMINI_API_KEY** configure karein!\n\n**Tip for "${
+          lesson.title
+        }":** Is context ke concepts se ek sentence banayein aur daily practice karein!`
+
+        const newMessages = [...updatedMessages, { role: "model" as const, content: demoReply }]
+        setMessages(newMessages)
         setIsLoading(false)
+
+        if (voiceEnabled || isVoiceMsg) {
+          speakModelReply(demoReply, newMessages.length - 1)
+        }
         return
       }
 
@@ -206,6 +428,7 @@ export default function AiTutor({ lesson }: AiTutorProps) {
         messages: updatedMessages.map((m) => ({ role: m.role, content: m.content })),
         userMessage: textToSend,
         systemInstruction,
+        audioData: voiceMeta?.audioData,
       })
 
       let modelDbId: number | undefined
@@ -218,7 +441,13 @@ export default function AiTutor({ lesson }: AiTutorProps) {
         }
       }
 
-      setMessages((prev) => [...prev, { id: modelDbId, role: "model", content: reply }])
+      const newMessages = [...updatedMessages, { id: modelDbId, role: "model" as const, content: reply }]
+      setMessages(newMessages)
+
+      // Auto-speak model answer if voice model is ON or question was asked via voice
+      if (voiceEnabled || isVoiceMsg) {
+        speakModelReply(reply, newMessages.length - 1)
+      }
     } catch (err: any) {
       console.error("Gemini API error:", err)
       setError(err?.message || "Failed to get AI response. Please try again.")
@@ -256,7 +485,6 @@ export default function AiTutor({ lesson }: AiTutorProps) {
       setEditInput("")
 
       if (reAsk) {
-        // Re-ask Gemini for this updated prompt
         setIsLoading(true)
         setError(null)
         try {
@@ -275,7 +503,12 @@ export default function AiTutor({ lesson }: AiTutorProps) {
             modelDbId = saved.id
           }
 
-          setMessages((prev) => [...prev, { id: modelDbId, role: "model", content: reply }])
+          const freshList = [...nextMessages, { id: modelDbId, role: "model" as const, content: reply }]
+          setMessages(freshList)
+
+          if (voiceEnabled) {
+            speakModelReply(reply, freshList.length - 1)
+          }
         } catch (apiErr: any) {
           setError(apiErr?.message || "Failed to get fresh AI response.")
         } finally {
@@ -300,6 +533,7 @@ export default function AiTutor({ lesson }: AiTutorProps) {
       }
       setMessages((prev) => prev.filter((_, i) => i !== idx))
       if (editingIdx === idx) cancelEdit()
+      if (speakingMsgIdx === idx) handleStopSpeaking()
     } catch (err: any) {
       alert(err?.message || "Failed to delete chat message.")
     }
@@ -313,6 +547,7 @@ export default function AiTutor({ lesson }: AiTutorProps) {
       if (currentUser?.id) {
         await clearLessonChatMessages(lesson.id, currentUser.id)
       }
+      handleStopSpeaking()
       setMessages([])
       cancelEdit()
     } catch (err: any) {
@@ -334,7 +569,7 @@ export default function AiTutor({ lesson }: AiTutorProps) {
 
   return (
     <div className="flex flex-col h-[480px] lg:h-[520px]">
-      {/* Header bar: Brand on Left, Prompts & Reset on Right */}
+      {/* Header bar: Brand on Left, Voice Toggle, Prompts & Reset on Right */}
       <div className="p-2.5 sm:p-3 bg-emerald-900/5 border-b border-emerald-900/10 flex items-center justify-between gap-2">
         {/* Left Side: Ask Akib Sir Brand */}
         <div className="flex items-center gap-2 min-w-0">
@@ -352,8 +587,35 @@ export default function AiTutor({ lesson }: AiTutorProps) {
           </div>
         </div>
 
-        {/* Right Side: Prompts Hamburger Button & Reset */}
+        {/* Right Side: Voice Answer Toggle, Prompts & Reset */}
         <div className="flex items-center gap-1.5 shrink-0">
+          {/* Voice Model Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              if (speakingMsgIdx !== null) handleStopSpeaking()
+              setVoiceEnabled(!voiceEnabled)
+            }}
+            className={`px-2 py-1.5 rounded-xl border transition flex items-center gap-1 cursor-pointer shrink-0 text-[11px] font-bold ${
+              voiceEnabled
+                ? "bg-emerald-50 text-emerald-800 border-emerald-300 shadow-2xs"
+                : "bg-white text-stone-400 border-stone-200 hover:text-stone-700 shadow-2xs"
+            }`}
+            title={
+              voiceEnabled
+                ? "Voice Model ON (Akib Sir speaks answers in audio). Click to mute auto-speak."
+                : "Voice Model OFF (Click to enable audio answers)."
+            }
+          >
+            {voiceEnabled ? (
+              <Volume2 className="w-3.5 h-3.5 text-emerald-700" />
+            ) : (
+              <VolumeX className="w-3.5 h-3.5 text-stone-400" />
+            )}
+            <span className="hidden sm:inline">{voiceEnabled ? "Voice ON" : "Voice OFF"}</span>
+          </button>
+
+          {/* Prompts Drawer Button */}
           <button
             type="button"
             onClick={() => setShowPromptsMenu(!showPromptsMenu)}
@@ -427,12 +689,12 @@ export default function AiTutor({ lesson }: AiTutorProps) {
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-3.5 space-y-3 text-xs">
         {messages.length === 0 ? (
           <div className="py-8 text-center text-stone-400 space-y-2.5">
-            <div className="text-3xl">👋</div>
+            <div className="text-3xl">🎙️</div>
             <p className="text-xs sm:text-sm font-semibold text-stone-700">
-              Koi doubt hai ya practice sentence check karwana hai?
+              Koi doubt hai ya English practice karni hai?
             </p>
             <p className="text-[11px] text-stone-500 max-w-sm mx-auto leading-relaxed">
-              Niche quick prompts chunein ya type karein: <em>&ldquo;Can you check my sentence: I can afford this book?&rdquo;</em>
+              Mic dabakar apna question bolein ya type karein. Akib Sir Hinglish mein explain aur audio mein answer karenge!
             </p>
           </div>
         ) : (
@@ -499,8 +761,72 @@ export default function AiTutor({ lesson }: AiTutorProps) {
                           : "bg-stone-100 text-stone-800 rounded-tl-xs border border-stone-200"
                       }`}
                     >
-                      {m.content}
+                      {/* Voice Question Badge */}
+                      {isUser && m.isVoice && (
+                        <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-200 mb-1 border-b border-emerald-700/60 pb-1">
+                          <Mic className="w-3 h-3 text-emerald-300" />
+                          <span>Voice Question</span>
+                        </div>
+                      )}
+
+                      <div>{m.content}</div>
+
+                      {/* Student's recorded audio playback */}
+                      {isUser && m.audioUrl && (
+                        <div className="mt-1.5 pt-1.5 border-t border-emerald-700/60">
+                          <audio controls src={m.audioUrl} className="h-6 w-44 max-w-full opacity-90 rounded" />
+                        </div>
+                      )}
                     </div>
+
+                    {/* Akib Sir Audio Player Bar */}
+                    {!isUser && (
+                      <div className="flex flex-wrap items-center gap-1.5 px-1 pt-0.5">
+                        {speakingMsgIdx === idx ? (
+                          <button
+                            type="button"
+                            onClick={handleStopSpeaking}
+                            className="px-2 py-0.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shadow-2xs"
+                            title="Stop audio playback"
+                          >
+                            <Square className="w-2.5 h-2.5 fill-current" />
+                            <span>Stop Audio</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => speakModelReply(m.content, idx)}
+                            className="px-2 py-0.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold flex items-center gap-1 transition cursor-pointer shadow-2xs"
+                            title="Listen to Akib Sir answer in audio"
+                          >
+                            <Volume2 className="w-3 h-3 text-emerald-700" />
+                            <span>Listen to Audio</span>
+                          </button>
+                        )}
+
+                        {/* Speaking equalizer animation */}
+                        {speakingMsgIdx === idx && (
+                          <div className="flex items-center gap-1 text-[10px] text-emerald-800 font-semibold bg-emerald-100/70 px-2 py-0.5 rounded-full">
+                            <span className="flex items-end gap-0.5 h-2.5">
+                              <span className="w-0.5 h-1.5 bg-emerald-600 rounded-full animate-pulse"></span>
+                              <span className="w-0.5 h-2.5 bg-emerald-600 rounded-full animate-pulse delay-75"></span>
+                              <span className="w-0.5 h-2 bg-emerald-600 rounded-full animate-pulse delay-150"></span>
+                            </span>
+                            <span>Akib Sir speaking...</span>
+                          </div>
+                        )}
+
+                        {/* Audio Speed Selector */}
+                        <button
+                          type="button"
+                          onClick={() => handleCycleSpeed(idx, m.content)}
+                          className="px-1.5 py-0.5 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-600 text-[10px] font-mono font-bold transition cursor-pointer"
+                          title="Toggle speaking speed: 1.0x (normal), 0.85x (slow for learners), 1.15x (fast)"
+                        >
+                          {speechRate}x
+                        </button>
+                      </div>
+                    )}
 
                     {/* Reactions & Action buttons */}
                     <div
@@ -555,7 +881,23 @@ export default function AiTutor({ lesson }: AiTutorProps) {
         {isLoading && (
           <div className="flex items-center gap-2 text-emerald-700 text-xs font-medium animate-pulse py-1">
             <span className="inline-block w-2 h-2 rounded-full bg-emerald-600"></span>
-            <span>Akib Sir is thinking and writing your feedback...</span>
+            <span>Akib Sir is thinking and preparing your audio response...</span>
+          </div>
+        )}
+
+        {recordingError && (
+          <div className="p-2.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-[11px] flex items-center justify-between gap-1.5">
+            <div className="flex items-center gap-1.5">
+              <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+              <span>{recordingError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setRecordingError(null)}
+              className="text-amber-700 hover:text-amber-900 p-0.5 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         )}
 
@@ -567,24 +909,99 @@ export default function AiTutor({ lesson }: AiTutorProps) {
         )}
       </div>
 
-      {/* Input Box */}
-      <form onSubmit={(e) => handleSend(e)} className="p-2 border-t border-stone-200 bg-white flex gap-1.5">
-        <input
-          ref={inputRef}
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask Akib Sir a question or check a sentence..."
-          className="flex-1 px-3 py-2 text-xs rounded-xl border border-stone-300 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition"
-        />
-        <button
-          type="submit"
-          disabled={!input.trim() || isLoading}
-          className="px-3.5 py-2 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-40 text-white rounded-xl transition flex items-center justify-center cursor-pointer shadow-xs"
-        >
-          <Send className="w-3.5 h-3.5" />
-        </button>
-      </form>
+      {/* Input / Voice Recording Area */}
+      {isRecording ? (
+        <div className="p-2.5 sm:p-3 border-t border-emerald-200 bg-emerald-50/70 space-y-2 animate-in fade-in duration-150">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600"></span>
+              </span>
+              <span className="text-xs font-bold text-stone-800">
+                Recording Question...
+              </span>
+              <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-md bg-white border border-stone-200 text-stone-600">
+                {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, "0")} / 1:00
+              </span>
+            </div>
+
+            {/* Equalizer animation */}
+            <div className="flex items-end gap-0.5 h-3.5">
+              <div className="w-1 bg-red-500 rounded-full animate-pulse h-2"></div>
+              <div className="w-1 bg-red-500 rounded-full animate-pulse delay-75 h-3.5"></div>
+              <div className="w-1 bg-red-500 rounded-full animate-pulse delay-150 h-2.5"></div>
+              <div className="w-1 bg-red-500 rounded-full animate-pulse delay-200 h-3"></div>
+              <div className="w-1 bg-red-500 rounded-full animate-pulse h-1.5"></div>
+            </div>
+          </div>
+
+          {/* Live speech preview */}
+          <div className="p-2 bg-white rounded-xl border border-emerald-200/80 text-xs text-stone-700 min-h-[36px] flex items-center">
+            {liveTranscript ? (
+              <span className="text-stone-900 font-medium">{liveTranscript}</span>
+            ) : (
+              <span className="text-stone-400 italic flex items-center gap-1.5">
+                <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+                Speak into your mic (English / Hinglish)...
+              </span>
+            )}
+          </div>
+
+          {/* Recording actions */}
+          <div className="flex items-center justify-between gap-2 pt-0.5">
+            <button
+              type="button"
+              onClick={handleCancelRecording}
+              className="px-3 py-1.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-100 text-stone-600 font-semibold text-xs flex items-center gap-1.5 cursor-pointer transition shadow-2xs"
+            >
+              <X className="w-3.5 h-3.5 text-stone-400" />
+              <span>Cancel</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleFinishRecordingAndSend}
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs transition"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>Send Voice Question</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={(e) => handleSend(e)} className="p-2 border-t border-stone-200 bg-white flex items-center gap-1.5">
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Type question or tap mic to speak..."
+            className="flex-1 px-3 py-2 text-xs rounded-xl border border-stone-300 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition"
+          />
+
+          {/* Record Voice Button */}
+          <button
+            type="button"
+            onClick={handleStartRecording}
+            disabled={isLoading}
+            className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl transition flex items-center justify-center cursor-pointer shrink-0 shadow-2xs disabled:opacity-40"
+            title="Ask by Voice (Record your question)"
+          >
+            <Mic className="w-4 h-4 text-emerald-800" />
+          </button>
+
+          {/* Send text button */}
+          <button
+            type="submit"
+            disabled={!input.trim() || isLoading}
+            className="px-3.5 py-2 bg-emerald-800 hover:bg-emerald-900 disabled:opacity-40 text-white rounded-xl transition flex items-center justify-center cursor-pointer shadow-xs shrink-0"
+            title="Send question"
+          >
+            <Send className="w-3.5 h-3.5" />
+          </button>
+        </form>
+      )}
     </div>
   )
 }

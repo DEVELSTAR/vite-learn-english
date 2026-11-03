@@ -71,19 +71,12 @@ function AppContent() {
         <SetupBanner />
         <Navbar />
         <Routes>
-          {/* Public Auth Routes */}
+          {/* Public Routes & Landing Page */}
+          <Route path="/" element={<HomePage />} />
           <Route path="/auth/sign-in" element={<SignInPage />} />
           <Route path="/auth/sign-up" element={<SignUpPage />} />
 
           {/* Protected Student Routes (Require Login / Signup) */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <HomePage />
-              </ProtectedRoute>
-            }
-          />
           <Route
             path="/lessons"
             element={

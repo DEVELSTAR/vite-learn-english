@@ -22,10 +22,14 @@ export interface SendMessageOptions {
   messages: ChatMessage[]
   userMessage: string
   systemInstruction?: string
+  audioData?: {
+    base64: string
+    mimeType: string
+  }
 }
 
 export async function sendGeminiChatMessage(options: SendMessageOptions): Promise<{ reply: string; usedModel: string }> {
-  const { apiKey, messages, userMessage, systemInstruction } = options
+  const { apiKey, messages, userMessage, systemInstruction, audioData } = options
 
   if (!apiKey) {
     throw new Error("Missing Gemini API Key. Please configure VITE_GEMINI_API_KEY in your .env file.")
@@ -65,7 +69,27 @@ export async function sendGeminiChatMessage(options: SendMessageOptions): Promis
         history: historyFormatted,
       })
 
-      const result = await chat.sendMessage(userMessage)
+      let result: any
+      if (audioData?.base64) {
+        const parts: any[] = [
+          {
+            inlineData: {
+              mimeType: audioData.mimeType || "audio/webm",
+              data: audioData.base64,
+            },
+          },
+        ]
+        if (userMessage) {
+          parts.push({ text: userMessage })
+        } else {
+          parts.push({
+            text: "Please listen to my audio question and answer as Akib Sir in natural, encouraging Hinglish and English.",
+          })
+        }
+        result = await chat.sendMessage(parts)
+      } else {
+        result = await chat.sendMessage(userMessage)
+      }
       const reply = result.response.text()
 
       if (reply) {
@@ -94,10 +118,21 @@ export async function sendGeminiChatMessage(options: SendMessageOptions): Promis
       if (errMsg.toLowerCase().includes("system instruction") || errMsg.toLowerCase().includes("system_instruction")) {
         try {
           const fallbackModel = genAI.getGenerativeModel({ model: modelName }, { apiVersion: "v1" })
-          const augmentedPrompt = systemInstruction
-            ? `[System Instructions: ${systemInstruction}]\n\n${userMessage}`
-            : userMessage
-          const result = await fallbackModel.generateContent(augmentedPrompt)
+          const fallbackParts: any[] = []
+          if (audioData?.base64) {
+            fallbackParts.push({
+              inlineData: {
+                mimeType: audioData.mimeType || "audio/webm",
+                data: audioData.base64,
+              },
+            })
+          }
+          const promptText = systemInstruction
+            ? `[System Instructions: ${systemInstruction}]\n\n${userMessage || "Please answer my voice question."}`
+            : userMessage || "Please answer my voice question."
+          fallbackParts.push({ text: promptText })
+
+          const result = await fallbackModel.generateContent(fallbackParts)
           const reply = result.response.text()
           if (reply) {
             cachedWorkingModel = modelName
