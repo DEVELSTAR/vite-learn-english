@@ -25,8 +25,7 @@ export default function TopicsPage() {
   const filtered = topics.filter(
     (t) =>
       t.title.toLowerCase().includes(search.toLowerCase()) ||
-      (t.topic && t.topic.toLowerCase().includes(search.toLowerCase())) ||
-      (t.introduction && t.introduction.toLowerCase().includes(search.toLowerCase()))
+      (t.topic && t.topic.toLowerCase().includes(search.toLowerCase()))
   )
 
   return (
@@ -71,13 +70,13 @@ export default function TopicsPage() {
           {filtered.map((topic, index) => (
             <Link
               key={topic.id}
-              to={`/topics/${topic.slug}`}
+              to={`/topics/${topic.id}`}
               className="bg-white p-5 rounded-2xl border border-stone-200 hover:border-emerald-600/50 hover:shadow-sm transition flex flex-col justify-between group"
             >
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-800">
-                    Topic #{topic.position || index + 1}
+                    Topic #{index + 1}
                   </span>
                   {topic.topic && (
                     <span className="text-[11px] text-stone-400 font-semibold">{topic.topic}</span>
@@ -89,7 +88,7 @@ export default function TopicsPage() {
                 </h3>
 
                 <p className="text-xs text-stone-500 line-clamp-3 leading-relaxed">
-                  {topic.introduction || "Foundational English grammar & concept overview."}
+                  Foundational English grammar & concept overview.
                 </p>
               </div>
 

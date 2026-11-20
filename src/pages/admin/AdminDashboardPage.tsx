@@ -149,7 +149,7 @@ export default function AdminDashboardPage() {
 
                       <td className="py-3 px-3 font-bold text-stone-900">
                         <Link
-                          to={isTopic ? `/topics/${lesson.slug}` : `/lessons/${lesson.slug}`}
+                          to={isTopic ? `/topics/${lesson.id}` : `/lessons/${lesson.id}`}
                           className="hover:underline flex items-center gap-1.5"
                         >
                           <span>{lesson.title}</span>

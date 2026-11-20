@@ -144,21 +144,20 @@ export default function HomePage() {
 
               {/* Class Title */}
               <h2 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight text-white leading-tight">
-                <Link to={`/lessons/${latestClass.slug}`} className="hover:text-emerald-300 transition">
+                <Link to={`/lessons/${latestClass.id}`} className="hover:text-emerald-300 transition">
                   {latestClass.title}
                 </Link>
               </h2>
 
               {/* Introduction / Description */}
               <p className="text-stone-300 text-xs sm:text-sm md:text-base leading-relaxed line-clamp-3">
-                {latestClass.introduction ||
-                  "Master real-world speaking patterns, everyday vocabulary, and natural pronunciation with today's interactive lesson."}
+                Master real-world speaking patterns, everyday vocabulary, and natural pronunciation with today's interactive lesson.
               </p>
 
               {/* Call to Actions */}
               <div className="flex flex-wrap items-center gap-3 pt-2">
                 <Link
-                  to={`/lessons/${latestClass.slug}`}
+                  to={`/lessons/${latestClass.id}`}
                   className="px-6 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold text-sm transition shadow-lg shadow-emerald-500/20 flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
                 >
                   <span>Start Today&apos;s Class</span>
@@ -166,7 +165,7 @@ export default function HomePage() {
                 </Link>
 
                 <Link
-                  to={`/lessons/${latestClass.slug}`}
+                  to={`/lessons/${latestClass.id}`}
                   className="px-5 py-3 rounded-2xl bg-stone-800/90 hover:bg-stone-700 text-stone-200 font-semibold text-sm border border-stone-700/80 transition flex items-center gap-2"
                 >
                   <Mic className="w-4 h-4 text-emerald-400" />
@@ -208,7 +207,7 @@ export default function HomePage() {
 
           {latestClass && (
             <Link
-              to={`/lessons/${latestClass.slug}`}
+              to={`/lessons/${latestClass.id}`}
               className="px-4 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs flex items-center justify-center gap-2 transition shrink-0 shadow-2xs"
             >
               <span>Try Voice Practice</span>
@@ -238,7 +237,7 @@ export default function HomePage() {
                 previousClasses.map((lesson) => (
                   <Link
                     key={lesson.id}
-                    to={`/lessons/${lesson.slug}`}
+                    to={`/lessons/${lesson.id}`}
                     className="block p-4 rounded-2xl bg-white border border-stone-200/90 hover:border-emerald-500/50 hover:shadow-2xs transition group"
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -256,7 +255,7 @@ export default function HomePage() {
                         <h3 className="text-sm font-bold text-stone-900 group-hover:text-emerald-800 transition">
                           {lesson.title}
                         </h3>
-                        <p className="text-xs text-stone-500 line-clamp-1">{lesson.introduction}</p>
+                        <p className="text-xs text-stone-500 line-clamp-1">Daily practical speaking class.</p>
                       </div>
                       <ArrowRight className="w-4 h-4 text-stone-300 group-hover:text-emerald-700 group-hover:translate-x-1 transition shrink-0 mt-1" />
                     </div>
@@ -282,23 +281,23 @@ export default function HomePage() {
               {topics.length === 0 ? (
                 <p className="text-xs text-stone-500 py-4">No topics found.</p>
               ) : (
-                topics.slice(0, 4).map((topic) => (
+                topics.slice(0, 4).map((topic, index) => (
                   <Link
                     key={topic.id}
-                    to={`/topics/${topic.slug}`}
+                    to={`/topics/${topic.id}`}
                     className="block p-4 rounded-2xl bg-white border border-stone-200/90 hover:border-emerald-500/50 hover:shadow-2xs transition group"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800">
-                            Topic #{topic.position || 1}
+                            Topic #{index + 1}
                           </span>
                         </div>
                         <h3 className="text-sm font-bold text-stone-900 group-hover:text-emerald-800 transition">
                           {topic.title}
                         </h3>
-                        <p className="text-xs text-stone-500 line-clamp-1">{topic.introduction}</p>
+                        <p className="text-xs text-stone-500 line-clamp-1">Foundational English grammar & concept overview.</p>
                       </div>
                       <ArrowRight className="w-4 h-4 text-stone-300 group-hover:text-emerald-700 group-hover:translate-x-1 transition shrink-0 mt-1" />
                     </div>
@@ -633,7 +632,7 @@ export default function HomePage() {
                 {latestClass.title}
               </h3>
               <p className="text-xs text-stone-600 line-clamp-3 leading-relaxed">
-                {latestClass.introduction || "Daily practical speaking class with workplace and daily life examples."}
+                Daily practical speaking class with workplace and daily life examples.
               </p>
               <Link
                 to="/auth/sign-up"
@@ -650,7 +649,7 @@ export default function HomePage() {
             <h4 className="text-xs font-bold uppercase tracking-wider text-stone-500 mb-2">
               Foundational Topics
             </h4>
-            {topics.slice(0, 3).map((top) => (
+            {topics.slice(0, 3).map((top, index) => (
               <div
                 key={top.id}
                 className="p-4 rounded-2xl bg-white border border-stone-200 flex items-start justify-between gap-3"
@@ -658,11 +657,11 @@ export default function HomePage() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-stone-100 text-stone-700">
-                      Topic #{top.position || 1}
+                      Topic #{index + 1}
                     </span>
                   </div>
                   <h4 className="text-sm font-bold text-stone-900">{top.title}</h4>
-                  <p className="text-xs text-stone-500 line-clamp-1">{top.introduction}</p>
+                  <p className="text-xs text-stone-500 line-clamp-1">Foundational English grammar & concept overview.</p>
                 </div>
                 <Link
                   to="/auth/sign-up"

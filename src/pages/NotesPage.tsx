@@ -778,8 +778,8 @@ export default function NotesPage() {
                       <Link
                         to={
                           note.lesson.lesson_type === 1
-                            ? `/topics/${note.lesson.slug}`
-                            : `/lessons/${note.lesson.slug}`
+                            ? `/topics/${note.lesson.id}`
+                            : `/lessons/${note.lesson.id}`
                         }
                         className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md hover:bg-emerald-100 transition"
                       >

@@ -25,8 +25,7 @@ export default function LessonsPage() {
   const filtered = lessons.filter(
     (l) =>
       l.title.toLowerCase().includes(search.toLowerCase()) ||
-      (l.topic && l.topic.toLowerCase().includes(search.toLowerCase())) ||
-      (l.introduction && l.introduction.toLowerCase().includes(search.toLowerCase()))
+      (l.topic && l.topic.toLowerCase().includes(search.toLowerCase()))
   )
 
   return (
@@ -71,7 +70,7 @@ export default function LessonsPage() {
           {filtered.map((lesson) => (
             <Link
               key={lesson.id}
-              to={`/lessons/${lesson.slug}`}
+              to={`/lessons/${lesson.id}`}
               className="bg-white p-5 rounded-2xl border border-stone-200 hover:border-emerald-600/50 hover:shadow-sm transition flex flex-col justify-between group"
             >
               <div className="space-y-2">
@@ -87,7 +86,7 @@ export default function LessonsPage() {
                 </h3>
 
                 <p className="text-xs text-stone-500 line-clamp-3 leading-relaxed">
-                  {lesson.introduction || "Read today's practical speaking tips."}
+                  Daily practical speaking class to overcome hesitation and build fluency.
                 </p>
               </div>
 

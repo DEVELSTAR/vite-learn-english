@@ -16,7 +16,6 @@ export default function LessonForm({
   const navigate = useNavigate()
 
   const [title, setTitle] = useState(initialLesson.title || "")
-  const [slug, setSlug] = useState(initialLesson.slug || "")
   const [lessonDate, setLessonDate] = useState(
     initialLesson.lesson_date || new Date().toISOString().split("T")[0]
   )
@@ -27,25 +26,10 @@ export default function LessonForm({
   const [status, setStatus] = useState<LessonStatus>(
     initialLesson.status ?? 0
   )
-  const [introduction, setIntroduction] = useState(initialLesson.introduction || "")
   const [content, setContent] = useState(initialLesson.content || "")
-  const [position, setPosition] = useState(initialLesson.position ?? 0)
 
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  // Auto-generate slug from title
-  const handleTitleChange = (val: string) => {
-    setTitle(val)
-    if (!isEditing && !slug) {
-      setSlug(
-        val
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/(^-|-$)+/g, "")
-      )
-    }
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,13 +39,10 @@ export default function LessonForm({
     const payload: Partial<Lesson> = {
       ...(initialLesson.id ? { id: initialLesson.id } : {}),
       title: title.trim(),
-      slug: slug.trim(),
       lesson_date: lessonDate,
       lesson_type: lessonType,
       topic: topic.trim() || null,
       status,
-      introduction: introduction.trim() || null,
-      position: Number(position) || 0,
     }
 
     try {
@@ -134,22 +115,9 @@ export default function LessonForm({
             type="text"
             required
             value={title}
-            onChange={(e) => handleTitleChange(e.target.value)}
+            onChange={(e) => setTitle(e.target.value)}
             placeholder="e.g. Everyday Hinglish to Fluent English"
             className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-300 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition"
-          />
-        </div>
-
-        {/* Slug */}
-        <div className="space-y-1">
-          <label className="text-xs font-bold text-stone-700">Slug (URL path)</label>
-          <input
-            type="text"
-            required
-            value={slug}
-            onChange={(e) => setSlug(e.target.value)}
-            placeholder="e.g. everyday-hinglish-to-fluent-english"
-            className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-300 font-mono text-[11px] focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition"
           />
         </div>
 
@@ -199,29 +167,6 @@ export default function LessonForm({
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
             placeholder="e.g. Daily Speaking, Grammar, Business"
-            className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-300 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition"
-          />
-        </div>
-
-        {/* Position */}
-        <div className="space-y-1">
-          <label className="text-xs font-bold text-stone-700">Order Position</label>
-          <input
-            type="number"
-            value={position}
-            onChange={(e) => setPosition(Number(e.target.value))}
-            className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-300 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition"
-          />
-        </div>
-
-        {/* Introduction */}
-        <div className="sm:col-span-2 space-y-1">
-          <label className="text-xs font-bold text-stone-700">Summary / Introduction</label>
-          <textarea
-            rows={2}
-            value={introduction}
-            onChange={(e) => setIntroduction(e.target.value)}
-            placeholder="Brief overview explaining what learners will achieve..."
             className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-stone-300 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition"
           />
         </div>

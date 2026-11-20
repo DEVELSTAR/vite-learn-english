@@ -23,16 +23,13 @@ export type LessonType = 0 | 1
 export interface Lesson {
   id: number
   title: string
-  slug: string
   lesson_date: string
   topic?: string | null
-  introduction?: string | null
   status: LessonStatus
   author_id?: number | null
   created_at: string
   updated_at: string
   lesson_type: LessonType
-  position: number
   // Rich text body joined from action_text_rich_texts table
   content?: string | null
 }
@@ -90,7 +87,7 @@ export interface Note {
   is_global: boolean
   lesson_title?: string
   user?: Pick<User, "id" | "name" | "email_address" | "role">
-  lesson?: Pick<Lesson, "id" | "title" | "slug" | "lesson_type"> | null
+  lesson?: Pick<Lesson, "id" | "title" | "lesson_type"> | null
   note_shares?: NoteShare[]
 }
 

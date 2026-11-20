@@ -106,7 +106,7 @@ export async function fetchLessons(options?: {
     }
 
     if (options?.lessonType === 1) {
-      query = query.order("position", { ascending: true }).order("created_at", { ascending: true })
+      query = query.order("id", { ascending: true })
     } else {
       query = query.order("lesson_date", { ascending: false }).order("created_at", { ascending: false })
     }
@@ -120,7 +120,7 @@ export async function fetchLessons(options?: {
     if (options?.includeContent) {
       for (const lesson of lessons) {
         const body = await getLessonContent(lesson.id)
-        lesson.content = body || lesson.introduction || ""
+        lesson.content = body || ""
       }
     }
 
@@ -138,14 +138,15 @@ export async function fetchLessons(options?: {
   }
 }
 
-// 2. Fetch Single Lesson by Slug (with content & navigation)
-export async function fetchLessonBySlug(slug: string): Promise<{
+// 2. Fetch Single Lesson by ID (with content & navigation)
+export async function fetchLessonById(id: number | string): Promise<{
   lesson: Lesson | null
-  previousLesson: Pick<Lesson, "title" | "slug" | "lesson_date" | "lesson_type"> | null
-  nextLesson: Pick<Lesson, "title" | "slug" | "lesson_date" | "lesson_type"> | null
+  previousLesson: Pick<Lesson, "id" | "title" | "lesson_date" | "lesson_type"> | null
+  nextLesson: Pick<Lesson, "id" | "title" | "lesson_date" | "lesson_type"> | null
 }> {
+  const numericId = Number(id)
   if (!supabase) {
-    const lesson = MOCK_LESSONS.find((l) => l.slug === slug) || null
+    const lesson = MOCK_LESSONS.find((l) => l.id === numericId) || null
     if (!lesson) return { lesson: null, previousLesson: null, nextLesson: null }
     const siblings = MOCK_LESSONS.filter((l) => l.lesson_type === lesson.lesson_type)
     const idx = siblings.findIndex((l) => l.id === lesson.id)
@@ -160,14 +161,14 @@ export async function fetchLessonBySlug(slug: string): Promise<{
     const { data: lessonData, error } = await supabase
       .from("lessons")
       .select("*")
-      .eq("slug", slug)
+      .eq("id", numericId)
       .single()
 
     if (error || !lessonData) return { lesson: null, previousLesson: null, nextLesson: null }
 
     const lesson: Lesson = lessonData as Lesson
     const content = await getLessonContent(lesson.id)
-    lesson.content = content || lesson.introduction || ""
+    lesson.content = content || ""
 
     // Previous and next lessons
     const isTopic = lesson.lesson_type === 1
@@ -175,31 +176,31 @@ export async function fetchLessonBySlug(slug: string): Promise<{
     let nextRes = null
 
     if (isTopic) {
-      // Topics ordered by position asc
+      // Topics ordered by id asc
       prevRes = await supabase
         .from("lessons")
-        .select("title, slug, lesson_date, lesson_type")
+        .select("id, title, lesson_date, lesson_type")
         .eq("lesson_type", 1)
         .eq("status", 1)
-        .lt("position", lesson.position)
-        .order("position", { ascending: false })
+        .lt("id", lesson.id)
+        .order("id", { ascending: false })
         .limit(1)
         .maybeSingle()
 
       nextRes = await supabase
         .from("lessons")
-        .select("title, slug, lesson_date, lesson_type")
+        .select("id, title, lesson_date, lesson_type")
         .eq("lesson_type", 1)
         .eq("status", 1)
-        .gt("position", lesson.position)
-        .order("position", { ascending: true })
+        .gt("id", lesson.id)
+        .order("id", { ascending: true })
         .limit(1)
         .maybeSingle()
     } else {
       // Daily classes ordered by lesson_date desc
       prevRes = await supabase
         .from("lessons")
-        .select("title, slug, lesson_date, lesson_type")
+        .select("id, title, lesson_date, lesson_type")
         .eq("lesson_type", 0)
         .eq("status", 1)
         .lt("lesson_date", lesson.lesson_date)
@@ -209,7 +210,7 @@ export async function fetchLessonBySlug(slug: string): Promise<{
 
       nextRes = await supabase
         .from("lessons")
-        .select("title, slug, lesson_date, lesson_type")
+        .select("id, title, lesson_date, lesson_type")
         .eq("lesson_type", 0)
         .eq("status", 1)
         .gt("lesson_date", lesson.lesson_date)
@@ -225,10 +226,12 @@ export async function fetchLessonBySlug(slug: string): Promise<{
     }
   } catch (err) {
     console.error("Error fetching lesson:", err)
-    const fallback = MOCK_LESSONS.find((l) => l.slug === slug) || null
+    const fallback = MOCK_LESSONS.find((l) => l.id === numericId) || null
     return { lesson: fallback, previousLesson: null, nextLesson: null }
   }
 }
+
+export const fetchLessonBySlug = fetchLessonById
 
 // 3. Save Lesson (Create or Update)
 export async function saveLesson(
@@ -243,13 +246,10 @@ export async function saveLesson(
 
   const payload = {
     title: lessonData.title?.trim(),
-    slug: lessonData.slug?.trim(),
     lesson_date: lessonData.lesson_date,
     lesson_type: lessonData.lesson_type ?? 0,
     topic: lessonData.topic?.trim() || null,
-    introduction: lessonData.introduction?.trim() || null,
     status: lessonData.status ?? 0,
-    position: lessonData.position ?? 0,
     updated_at: new Date().toISOString(),
   }
 
@@ -512,7 +512,7 @@ let MOCK_NOTES: Note[] = [
     created_at: new Date(Date.now() - 3600000 * 5).toISOString(),
     updated_at: new Date(Date.now() - 3600000 * 5).toISOString(),
     user: { id: 3, name: "Aman Sharma", email_address: "aman@example.com", role: 0 },
-    lesson: { id: 1, title: "Everyday Hinglish to Fluent English", slug: "everyday-hinglish-to-fluent-english", lesson_type: 0 },
+    lesson: { id: 1, title: "Everyday Hinglish to Fluent English", lesson_type: 0 },
     note_shares: [],
   },
   {
@@ -524,7 +524,7 @@ let MOCK_NOTES: Note[] = [
     created_at: new Date(Date.now() - 3600000 * 12).toISOString(),
     updated_at: new Date(Date.now() - 3600000 * 12).toISOString(),
     user: { id: 1, name: "Super Admin", email_address: "star@gmail.com", role: 2 },
-    lesson: { id: 2, title: "Ordering Food & Coffee Naturally", slug: "ordering-food-and-coffee-naturally", lesson_type: 0 },
+    lesson: { id: 2, title: "Ordering Food & Coffee Naturally", lesson_type: 0 },
     note_shares: [],
   },
 ]
@@ -605,7 +605,7 @@ export async function fetchNoteById(noteId: number): Promise<Note | null> {
   try {
     const { data, error } = await supabase
       .from("notes")
-      .select("*, user:users(id, name, email_address, role), lesson:lessons(id, title, slug, lesson_type), note_shares(*, user:users(id, name, email_address))")
+      .select("*, user:users(id, name, email_address, role), lesson:lessons(id, title, lesson_type), note_shares(*, user:users(id, name, email_address))")
       .eq("id", noteId)
       .maybeSingle()
 
@@ -651,7 +651,7 @@ export async function fetchVisibleNotes(
     // 2. Base query
     let query = supabase
       .from("notes")
-      .select("*, user:users(id, name, email_address, role), lesson:lessons(id, title, slug, lesson_type), note_shares(*, user:users(id, name, email_address))")
+      .select("*, user:users(id, name, email_address, role), lesson:lessons(id, title, lesson_type), note_shares(*, user:users(id, name, email_address))")
 
     // Filter by specific lesson if requested
     if (lessonId !== undefined && lessonId !== null) {
@@ -704,7 +704,7 @@ export async function fetchPendingNoteShares(userId: number): Promise<NoteShare[
   try {
     const { data, error } = await supabase
       .from("note_shares")
-      .select("*, note:notes(*, user:users(id, name, email_address, role), lesson:lessons(id, title, slug, lesson_type))")
+      .select("*, note:notes(*, user:users(id, name, email_address, role), lesson:lessons(id, title, lesson_type))")
       .eq("user_id", userId)
       .eq("status", 0)
       .order("created_at", { ascending: false })
@@ -800,7 +800,7 @@ export async function createNoteWithSharing(
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
-    .select("*, user:users(id, name, email_address, role), lesson:lessons(id, title, slug, lesson_type)")
+    .select("*, user:users(id, name, email_address, role), lesson:lessons(id, title, lesson_type)")
     .single()
 
   if (noteError) throw noteError

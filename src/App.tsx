@@ -94,7 +94,7 @@ function AppContent() {
             }
           />
           <Route
-            path="/lessons/:slug"
+            path="/lessons/:id"
             element={
               <ProtectedRoute>
                 <LessonDetailPage />
@@ -102,7 +102,7 @@ function AppContent() {
             }
           />
           <Route
-            path="/topics/:slug"
+            path="/topics/:id"
             element={
               <ProtectedRoute>
                 <LessonDetailPage />

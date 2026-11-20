@@ -28,7 +28,7 @@ export default function EditLessonPage() {
           if (data) {
             const body = await getLessonContent(lessonId)
             const item: Lesson = data as Lesson
-            item.content = body || item.introduction || ""
+            item.content = body || ""
             setLesson(item)
           }
         } else {

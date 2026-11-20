@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react"
 import { useParams, Link } from "react-router-dom"
-import { fetchLessonBySlug } from "../lib/supabase"
+import { fetchLessonById } from "../lib/supabase"
 import { Lesson } from "../types/database"
 import { useAuth } from "../context/AuthContext"
 import LessonSidebar from "../components/sidebar/LessonSidebar"
@@ -8,20 +8,20 @@ import StudentActions from "../components/lessons/StudentActions"
 import { ArrowLeft, ArrowRight, Calendar, Sparkles, BookOpen, Edit2, Loader2 } from "lucide-react"
 
 export default function LessonDetailPage() {
-  const { slug } = useParams<{ slug: string }>()
+  const { id } = useParams<{ id: string }>()
   const { isAdmin } = useAuth()
 
   const [lesson, setLesson] = useState<Lesson | null>(null)
-  const [previousLesson, setPreviousLesson] = useState<Pick<Lesson, "title" | "slug" | "lesson_date" | "lesson_type"> | null>(null)
-  const [nextLesson, setNextLesson] = useState<Pick<Lesson, "title" | "slug" | "lesson_date" | "lesson_type"> | null>(null)
+  const [previousLesson, setPreviousLesson] = useState<Pick<Lesson, "id" | "title" | "lesson_date" | "lesson_type"> | null>(null)
+  const [nextLesson, setNextLesson] = useState<Pick<Lesson, "id" | "title" | "lesson_date" | "lesson_type"> | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
-      if (!slug) return
+      if (!id) return
       setIsLoading(true)
       try {
-        const res = await fetchLessonBySlug(slug)
+        const res = await fetchLessonById(id)
         setLesson(res.lesson)
         setPreviousLesson(res.previousLesson)
         setNextLesson(res.nextLesson)
@@ -31,7 +31,7 @@ export default function LessonDetailPage() {
     }
     load()
     window.scrollTo(0, 0)
-  }, [slug])
+  }, [id])
 
   if (isLoading) {
     return (
@@ -94,7 +94,7 @@ export default function LessonDetailPage() {
                     isTopic ? "bg-emerald-50 text-emerald-800" : "bg-blue-50 text-blue-800"
                   }`}
                 >
-                  {isTopic ? `Topic #${lesson.position || 1}` : lesson.topic || "Daily Class"}
+                  {isTopic ? (lesson.topic || "Foundational Topic") : (lesson.topic || "Daily Class")}
                 </span>
 
                 <span className="text-xs text-stone-400 font-mono flex items-center gap-1">
@@ -110,12 +110,6 @@ export default function LessonDetailPage() {
             <h1 className="text-2xl sm:text-3xl font-black text-stone-900 tracking-tight leading-tight">
               {lesson.title}
             </h1>
-
-            {lesson.introduction && (
-              <p className="text-sm text-stone-600 italic bg-stone-50 p-3.5 rounded-xl border border-stone-200/60 leading-relaxed">
-                {lesson.introduction}
-              </p>
-            )}
           </div>
 
           {/* Render Rich Body (HTML from ActionText or formatted markdown) */}
@@ -134,7 +128,7 @@ export default function LessonDetailPage() {
               <div>
                 {previousLesson && (
                   <Link
-                    to={previousLesson.lesson_type === 1 ? `/topics/${previousLesson.slug}` : `/lessons/${previousLesson.slug}`}
+                    to={previousLesson.lesson_type === 1 ? `/topics/${previousLesson.id}` : `/lessons/${previousLesson.id}`}
                     className="block p-4 rounded-xl border border-stone-200 bg-stone-50/50 hover:bg-stone-50 hover:border-stone-400 transition"
                   >
                     <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block mb-1">
@@ -150,7 +144,7 @@ export default function LessonDetailPage() {
               <div className="text-right">
                 {nextLesson && (
                   <Link
-                    to={nextLesson.lesson_type === 1 ? `/topics/${nextLesson.slug}` : `/lessons/${nextLesson.slug}`}
+                    to={nextLesson.lesson_type === 1 ? `/topics/${nextLesson.id}` : `/lessons/${nextLesson.id}`}
                     className="block p-4 rounded-xl border border-stone-200 bg-stone-50/50 hover:bg-stone-50 hover:border-stone-400 transition"
                   >
                     <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block mb-1">

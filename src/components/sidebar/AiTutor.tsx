@@ -117,7 +117,7 @@ function buildSystemPrompt(lesson: Lesson, userName: string): string {
   const typeLabel = lesson.lesson_type === 1 ? "Topic" : "Daily Class"
   const lessonSummary = lesson.content
     ? lesson.content.replace(/<[^>]*>/g, "").slice(0, 1500)
-    : lesson.introduction || "No lesson text provided"
+    : "No lesson text provided"
 
   return `You are a warm, highly encouraging, and patient personal English Tutor named 'Akib Sir' on the 'Learn English' web app.
 You specialize in helping Hindi-speaking students become fluent and confident in everyday, spoken, and professional English.

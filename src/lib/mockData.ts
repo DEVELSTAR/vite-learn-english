@@ -31,13 +31,10 @@ export const MOCK_LESSONS: Lesson[] = [
   {
     id: 1,
     title: "Everyday Hinglish to Fluent English",
-    slug: "everyday-hinglish-to-fluent-english",
     lesson_date: new Date().toISOString().split("T")[0],
     topic: "Daily Speaking",
-    introduction: "Learn how to replace common Hinglish phrases with natural, confident English expressions.",
     status: 1, // published
     lesson_type: 0, // daily_class
-    position: 1,
     author_id: 1,
     content: `
 <h2>How to Stop Translating Word-by-Word</h2>
@@ -65,13 +62,10 @@ export const MOCK_LESSONS: Lesson[] = [
   {
     id: 2,
     title: "Ordering Food & Coffee Naturally",
-    slug: "ordering-food-and-coffee-naturally",
     lesson_date: new Date(Date.now() - 86400000).toISOString().split("T")[0],
     topic: "Social Situations",
-    introduction: "Polite and confident ways to place orders at cafes and restaurants without awkward pauses.",
     status: 1, // published
     lesson_type: 0, // daily_class
-    position: 2,
     author_id: 1,
     content: `
 <h2>Ordering with Confidence</h2>
@@ -90,13 +84,10 @@ export const MOCK_LESSONS: Lesson[] = [
   {
     id: 3,
     title: "English Tenses Made Simple",
-    slug: "english-tenses-made-simple",
     lesson_date: new Date().toISOString().split("T")[0],
     topic: "Grammar Foundations",
-    introduction: "Master the 3 core tenses that cover 85% of everyday conversations.",
     status: 1, // published
     lesson_type: 1, // foundational_topic
-    position: 1,
     author_id: 1,
     content: `
 <h2>The 3 Tenses You Actually Need Every Day</h2>
@@ -114,13 +105,10 @@ export const MOCK_LESSONS: Lesson[] = [
   {
     id: 4,
     title: "Prepositions: In, On, At Demystified",
-    slug: "prepositions-in-on-at-demystified",
     lesson_date: new Date(Date.now() - 172800000).toISOString().split("T")[0],
     topic: "Grammar Foundations",
-    introduction: "Clear rules to never confuse 'in time', 'on time', 'at the airport', or 'in the bus' ever again.",
     status: 1, // published
     lesson_type: 1, // foundational_topic
-    position: 2,
     author_id: 1,
     content: `
 <h2>In, On, and At: The Pyramid Rule</h2>
