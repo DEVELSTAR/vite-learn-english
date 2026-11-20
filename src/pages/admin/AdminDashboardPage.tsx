@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
 import { fetchLessons, deleteLesson } from "../../lib/supabase"
 import { Lesson } from "../../types/database"
-import { Plus, BookOpen, Sparkles, Users, FileText, Trash2, Edit2, Loader2, Eye } from "lucide-react"
+import { Plus, BookOpen, Sparkles, Users, FileText, Trash2, Edit2, Loader2 } from "lucide-react"
 
 export default function AdminDashboardPage() {
   const [lessons, setLessons] = useState<Lesson[]>([])
@@ -148,13 +148,7 @@ export default function AdminDashboardPage() {
                       </td>
 
                       <td className="py-3 px-3 font-bold text-stone-900">
-                        <Link
-                          to={isTopic ? `/topics/${lesson.id}` : `/lessons/${lesson.id}`}
-                          className="hover:underline flex items-center gap-1.5"
-                        >
-                          <span>{lesson.title}</span>
-                          <Eye className="w-3 h-3 text-stone-400 hover:text-stone-700" />
-                        </Link>
+                        <span>{lesson.title}</span>
                       </td>
 
                       <td className="py-3 px-3 text-stone-500 font-mono text-[11px]">{lesson.lesson_date}</td>

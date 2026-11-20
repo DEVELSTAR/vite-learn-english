@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react"
-import { Link } from "react-router-dom"
+import { Link, Navigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import { fetchLessons } from "../lib/supabase"
 import { Lesson } from "../types/database"
@@ -26,7 +26,7 @@ import {
 } from "lucide-react"
 
 export default function HomePage() {
-  const { currentUser } = useAuth()
+  const { currentUser, isAdmin } = useAuth()
   const [dailyClasses, setDailyClasses] = useState<Lesson[]>([])
   const [topics, setTopics] = useState<Lesson[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -55,6 +55,9 @@ export default function HomePage() {
   // VIEW A: Logged-in Student Learning Hub / Dashboard
   // -------------------------------------------------------------
   if (currentUser) {
+    if (isAdmin) {
+      return <Navigate to="/admin" replace />
+    }
     return (
       <div className="space-y-8 max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Welcome Header */}

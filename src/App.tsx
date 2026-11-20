@@ -26,9 +26,9 @@ import AdminStudentsPage from "./pages/admin/AdminStudentsPage"
 import AdminAdminsPage from "./pages/admin/AdminAdminsPage"
 import AdminHistoryPage from "./pages/admin/AdminHistoryPage"
 
-// Route Guard: Requires student or admin to be signed in
+// Route Guard: Strictly for students (admins cannot access student view pages)
 function ProtectedRoute({ children }: { children: React.ReactElement }) {
-  const { currentUser, isLoading } = useAuth()
+  const { currentUser, isAdmin, isLoading } = useAuth()
   const location = useLocation()
 
   if (isLoading) {
@@ -48,6 +48,11 @@ function ProtectedRoute({ children }: { children: React.ReactElement }) {
   if (!currentUser) {
     const returnUrl = encodeURIComponent(location.pathname + location.search)
     return <Navigate to={`/auth/sign-in?redirectTo=${returnUrl}`} replace />
+  }
+
+  // Admins cannot access student view pages
+  if (isAdmin) {
+    return <Navigate to="/admin" replace />
   }
 
   return children

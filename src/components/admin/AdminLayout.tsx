@@ -1,7 +1,7 @@
 import React from "react"
 import { Link, useLocation, Navigate, Outlet } from "react-router-dom"
 import { useAuth } from "../../context/AuthContext"
-import { ShieldCheck, LogOut, BookOpen, Users, UserCheck, History, ExternalLink } from "lucide-react"
+import { ShieldCheck, LogOut, BookOpen, Users, UserCheck, History } from "lucide-react"
 
 export default function AdminLayout() {
   const { currentUser, isAdmin, isSuperAdmin, logout } = useAuth()
@@ -91,23 +91,17 @@ export default function AdminLayout() {
                 <span>Admin Management</span>
               </Link>
             )}
-
-            {/* Quick Link to Student UI */}
-            <Link
-              to="/"
-              className="px-3 py-1.5 rounded-lg bg-emerald-800/60 hover:bg-emerald-800 border border-emerald-600/40 text-emerald-200 hover:text-white transition flex items-center gap-1.5"
-              title="Browse app as student"
-            >
-              <span>Student View</span>
-              <ExternalLink className="w-3 h-3" />
-            </Link>
           </nav>
         </div>
 
         {/* Right: Profile Info & Sign Out */}
         <div className="flex items-center gap-3 text-xs">
           <div className="flex items-center gap-2">
-            <span className="text-stone-300 font-medium">{currentUser.name}</span>
+            {currentUser.name &&
+              currentUser.name.trim().toLowerCase() !== "super admin" &&
+              currentUser.name.trim().toLowerCase() !== "admin" && (
+                <span className="text-stone-300 font-medium">{currentUser.name}</span>
+              )}
             <span
               className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
                 isSuperAdmin

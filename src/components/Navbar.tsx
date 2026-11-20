@@ -302,7 +302,11 @@ export default function Navbar() {
                   title="My Profile & Settings"
                 >
                   <span className="text-base select-none leading-none">{getUserProfileIcon(currentUser)}</span>
-                  <span className="font-semibold">{currentUser.name}</span>
+                  {currentUser.name &&
+                    currentUser.name.trim().toLowerCase() !== "super admin" &&
+                    currentUser.name.trim().toLowerCase() !== "admin" && (
+                      <span className="font-semibold">{currentUser.name}</span>
+                    )}
                 </Link>
 
                 {currentUser.role !== undefined && (currentUser.role === 1 || currentUser.role === 2) && (
@@ -363,7 +367,11 @@ export default function Navbar() {
                     {getUserProfileIcon(currentUser)}
                   </span>
                   <div>
-                    <span className="font-bold text-stone-900 block leading-tight">{currentUser.name}</span>
+                    {currentUser.name &&
+                      currentUser.name.trim().toLowerCase() !== "super admin" &&
+                      currentUser.name.trim().toLowerCase() !== "admin" && (
+                        <span className="font-bold text-stone-900 block leading-tight">{currentUser.name}</span>
+                      )}
                     <span className="text-[10px] text-stone-500 font-mono">{currentUser.email_address}</span>
                   </div>
                 </div>

@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from "react"
-import { useParams, Link } from "react-router-dom"
+import { useParams, Link, Navigate } from "react-router-dom"
 import { fetchLessonById } from "../lib/supabase"
 import { Lesson } from "../types/database"
 import { useAuth } from "../context/AuthContext"
 import LessonSidebar from "../components/sidebar/LessonSidebar"
 import StudentActions from "../components/lessons/StudentActions"
-import { ArrowLeft, ArrowRight, Calendar, Sparkles, BookOpen, Edit2, Loader2 } from "lucide-react"
+import { ArrowLeft, ArrowRight, Calendar, Sparkles, BookOpen, Loader2 } from "lucide-react"
 
 export default function LessonDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { isAdmin } = useAuth()
+
+  if (isAdmin) {
+    return <Navigate to="/admin" replace />
+  }
 
   const [lesson, setLesson] = useState<Lesson | null>(null)
   const [previousLesson, setPreviousLesson] = useState<Pick<Lesson, "id" | "title" | "lesson_date" | "lesson_type"> | null>(null)
@@ -62,25 +66,6 @@ export default function LessonDetailPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-      {/* Admin Preview & Quick Edit Bar */}
-      {isAdmin && (
-        <div className="bg-stone-900 text-stone-200 px-4 py-2.5 rounded-2xl flex items-center justify-between text-xs border border-stone-800 shadow-md">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span className="font-semibold">
-              Admin Preview: {lesson.status === 1 ? "Published" : "Draft (Hidden from students)"}
-            </span>
-          </div>
-          <Link
-            to={`/admin/lessons/${lesson.id}/edit`}
-            className="px-3 py-1 bg-white/10 hover:bg-white/20 text-white rounded-lg font-semibold flex items-center gap-1.5 transition"
-          >
-            <Edit2 className="w-3 h-3 text-emerald-400" />
-            <span>Edit This Lesson</span>
-          </Link>
-        </div>
-      )}
-
       {/* Main Content Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left / Top: Lesson Text */}
