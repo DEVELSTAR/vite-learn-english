@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useMemo } from "react"
 import { Link, Navigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
-import { fetchLessons } from "../lib/supabase"
-import { Lesson } from "../types/database"
-import { getUserProfileIcon } from "../lib/profileIcons"
+import {
+  fetchLessons,
+  fetchUserCompletions,
+  fetchUserNotes,
+  fetchPendingNoteShares,
+} from "../lib/supabase"
+import { Lesson, LessonCompletion, Note } from "../types/database"
 import {
   Sparkles,
   BookOpen,
@@ -12,6 +16,7 @@ import {
   Layers,
   Mic,
   Volume2,
+  VolumeX,
   CheckCircle2,
   Radio,
   FileText,
@@ -23,13 +28,33 @@ import {
   ArrowUpRight,
   Headphones,
   Check,
+  RotateCcw,
+  Search,
+  Loader2,
+  Play,
+  Square,
+  Award,
+  Clock,
+  ChevronRight,
+  AlertCircle,
+  Plus,
+  Bookmark,
+  Bell,
+  RefreshCw,
 } from "lucide-react"
 
 export default function HomePage() {
   const { currentUser, isAdmin } = useAuth()
   const [dailyClasses, setDailyClasses] = useState<Lesson[]>([])
   const [topics, setTopics] = useState<Lesson[]>([])
+  const [completions, setCompletions] = useState<LessonCompletion[]>([])
+  const [userNotes, setUserNotes] = useState<Note[]>([])
+  const [pendingSharesCount, setPendingSharesCount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
+
+  // Interactive controls
+  const [activeTab, setActiveTab] = useState<"classes" | "topics" | "revision" | "completed">("classes")
+  const [searchQuery, setSearchQuery] = useState("")
 
   useEffect(() => {
     async function load() {
@@ -41,275 +66,517 @@ export default function HomePage() {
         ])
         setDailyClasses(classes)
         setTopics(top)
+
+        if (currentUser?.id) {
+          const [comps, notes, shares] = await Promise.all([
+            fetchUserCompletions(currentUser.id),
+            fetchUserNotes(currentUser.id),
+            fetchPendingNoteShares(currentUser.id),
+          ])
+          setCompletions(comps)
+          setUserNotes(notes)
+          setPendingSharesCount(shares.length)
+        }
+      } catch (err) {
+        console.error("Error loading home page data:", err)
       } finally {
         setIsLoading(false)
       }
     }
     load()
-  }, [])
+  }, [currentUser?.id])
+
+  const completionMap = useMemo(() => {
+    const map = new Map<number, LessonCompletion>()
+    for (const c of completions) {
+      map.set(c.lesson_id, c)
+    }
+    return map
+  }, [completions])
+
+  const allLessons = useMemo(() => [...dailyClasses, ...topics], [dailyClasses, topics])
+
+  const completedLessons = useMemo(() => {
+    return allLessons.filter((l) => completionMap.get(l.id)?.completed)
+  }, [allLessons, completionMap])
+
+  const revisionLessons = useMemo(() => {
+    return allLessons.filter((l) => completionMap.get(l.id)?.needs_revision)
+  }, [allLessons, completionMap])
 
   const latestClass = dailyClasses[0] || null
-  const previousClasses = dailyClasses.length > 1 ? dailyClasses.slice(1, 5) : dailyClasses
+  const latestClassCompletion = latestClass ? completionMap.get(latestClass.id) : null
+
+  const totalLessonsCount = allLessons.length
+  const completedCount = completedLessons.length
+  const revisionCount = revisionLessons.length
+  const completionPercentage =
+    totalLessonsCount > 0 ? Math.round((completedCount / totalLessonsCount) * 100) : 0
+
+  const filteredList = useMemo(() => {
+    let source: Lesson[] = []
+    if (activeTab === "classes") source = dailyClasses
+    else if (activeTab === "topics") source = topics
+    else if (activeTab === "revision") source = revisionLessons
+    else if (activeTab === "completed") source = completedLessons
+
+    if (!searchQuery.trim()) return source
+    const q = searchQuery.toLowerCase()
+    return source.filter(
+      (l) => l.title.toLowerCase().includes(q) || (l.topic && l.topic.toLowerCase().includes(q))
+    )
+  }, [activeTab, dailyClasses, topics, revisionLessons, completedLessons, searchQuery])
 
   // -------------------------------------------------------------
-  // VIEW A: Logged-in Student Learning Hub / Dashboard
+  // VIEW A: Redesigned Student Learning Dashboard
   // -------------------------------------------------------------
   if (currentUser) {
     if (isAdmin) {
       return <Navigate to="/admin" replace />
     }
+
     return (
       <div className="space-y-8 max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {/* Welcome Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-6 bg-gradient-to-r from-emerald-900/10 via-emerald-800/5 to-transparent rounded-3xl border border-emerald-900/10">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-white border border-emerald-200/80 flex items-center justify-center text-2xl shadow-xs shrink-0 select-none">
-              {getUserProfileIcon(currentUser)}
+        {/* Pending Note Share Alert Banner */}
+        {pendingSharesCount > 0 && (
+          <div className="p-4 rounded-3xl bg-amber-50 border border-amber-200/90 flex items-center justify-between gap-3 text-xs text-amber-900 shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <Bell className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                You have <strong>{pendingSharesCount}</strong> pending note share invitation
+                {pendingSharesCount > 1 ? "s" : ""} from your classmates!
+              </span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight">
-                  Namaste, {currentUser.name}! 🙏
-                </h1>
-              </div>
-              <p className="text-xs sm:text-sm text-stone-600 mt-0.5">
-                Ready for today&apos;s speaking practice? Consistency is the key to natural fluency.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <Link
-              to="/lessons"
-              className="px-3.5 py-2 rounded-xl bg-white border border-stone-200 hover:border-emerald-500 hover:bg-emerald-50/50 text-stone-700 text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
-            >
-              <BookOpen className="w-3.5 h-3.5 text-emerald-700" />
-              <span>All Classes</span>
-            </Link>
             <Link
               to="/notes"
-              className="px-3.5 py-2 rounded-xl bg-white border border-stone-200 hover:border-emerald-500 hover:bg-emerald-50/50 text-stone-700 text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+              className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs shrink-0 transition"
             >
-              <FileText className="w-3.5 h-3.5 text-emerald-700" />
-              <span>My Notes</span>
-            </Link>
-            <Link
-              to="/profile"
-              className="px-3.5 py-2 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
-            >
-              <User className="w-3.5 h-3.5" />
-              <span>Profile</span>
+              Review in Notes &rarr;
             </Link>
           </div>
-        </div>
+        )}
 
-        {/* Latest Class Hero Card */}
+        {/* 1. Today's Focus Class Hero Card */}
         {isLoading ? (
-          <div className="rounded-3xl bg-stone-900 border border-stone-800 text-white p-8 sm:p-12 relative overflow-hidden shadow-2xl animate-pulse space-y-4">
-            <div className="h-6 w-36 bg-stone-800 rounded-full" />
-            <div className="h-10 sm:h-12 w-3/4 bg-stone-800 rounded-2xl" />
-            <div className="h-5 w-5/6 bg-stone-800/80 rounded-xl" />
-            <div className="h-5 w-2/3 bg-stone-800/60 rounded-xl" />
-            <div className="flex gap-3 pt-3">
-              <div className="h-11 w-40 bg-emerald-900/60 rounded-2xl" />
-              <div className="h-11 w-32 bg-stone-800 rounded-2xl" />
-            </div>
+          <div className="bg-white rounded-3xl border border-stone-200/90 p-6 sm:p-8 shadow-xs animate-pulse space-y-4">
+            <div className="h-6 w-36 bg-stone-100 rounded-full" />
+            <div className="h-8 w-2/3 bg-stone-100 rounded-xl" />
+            <div className="h-4 w-4/5 bg-stone-100 rounded-lg" />
           </div>
         ) : latestClass ? (
-          <div className="rounded-3xl bg-stone-900 border border-stone-800 text-white p-6 sm:p-10 md:p-12 relative overflow-hidden shadow-2xl">
-            <div className="relative z-10 max-w-3xl space-y-4 sm:space-y-5">
-              {/* Badges / Metadata */}
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold tracking-wide">
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Today&apos;s Class</span>
+          <div className="bg-white rounded-3xl border border-stone-200/90 p-6 sm:p-8 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-3.5 max-w-3xl">
+              {/* Status Badges */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Today&apos;s Focus Class</span>
                 </span>
 
                 {latestClass.topic && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-stone-800/90 border border-stone-700/80 text-stone-300 text-xs font-medium">
+                  <span className="px-3 py-1 rounded-full bg-stone-100 text-stone-700 text-xs font-semibold">
                     {latestClass.topic}
                   </span>
                 )}
 
                 {latestClass.lesson_date && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-800/90 border border-stone-700/80 text-stone-400 text-xs font-mono">
-                    <Calendar className="w-3.5 h-3.5 text-stone-400" />
-                    <span>
-                      {new Date(latestClass.lesson_date).toLocaleDateString([], {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </span>
+                  <span className="px-3 py-1 rounded-full bg-stone-50 border border-stone-200 text-stone-500 text-xs font-mono">
+                    {latestClass.lesson_date}
                   </span>
                 )}
+
+                {latestClassCompletion?.completed ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Completed</span>
+                  </span>
+                ) : latestClassCompletion?.needs_revision ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold">
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Needs Revision</span>
+                  </span>
+                ) : null}
               </div>
 
               {/* Class Title */}
-              <h2 className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight text-white leading-tight">
-                <Link to={`/lessons/${latestClass.id}`} className="hover:text-emerald-300 transition">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-stone-900 tracking-tight leading-snug">
+                <Link
+                  to={`/lessons/${latestClass.id}`}
+                  className="hover:text-emerald-700 transition"
+                >
                   {latestClass.title}
                 </Link>
               </h2>
 
-              {/* Introduction / Description */}
-              <p className="text-stone-300 text-xs sm:text-sm md:text-base leading-relaxed line-clamp-3">
+              <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
                 Master real-world speaking patterns, everyday vocabulary, and natural pronunciation with today's interactive lesson.
               </p>
-
-              {/* Call to Actions */}
-              <div className="flex flex-wrap items-center gap-3 pt-2">
-                <Link
-                  to={`/lessons/${latestClass.id}`}
-                  className="px-6 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold text-sm transition shadow-lg shadow-emerald-500/20 flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
-                >
-                  <span>Start Today&apos;s Class</span>
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
-
-                <Link
-                  to={`/lessons/${latestClass.id}`}
-                  className="px-5 py-3 rounded-2xl bg-stone-800/90 hover:bg-stone-700 text-stone-200 font-semibold text-sm border border-stone-700/80 transition flex items-center gap-2"
-                >
-                  <Mic className="w-4 h-4 text-emerald-400" />
-                  <span>Ask Akib Sir with Voice</span>
-                </Link>
-              </div>
             </div>
 
-            {/* Ambient background glows */}
-            <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute top-0 right-1/4 w-72 h-72 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none" />
+            {/* Call to Actions */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+              <Link
+                to={`/lessons/${latestClass.id}`}
+                className="px-5 py-3 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs sm:text-sm transition shadow-xs flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99]"
+              >
+                <span>
+                  {latestClassCompletion?.completed ? "Review Lesson Again" : "Start Today's Class"}
+                </span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+
+              <Link
+                to={`/lessons/${latestClass.id}`}
+                className="px-4 py-3 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2"
+              >
+                <Mic className="w-4 h-4 text-emerald-700" />
+                <span>Ask Akib Sir (Voice)</span>
+              </Link>
+            </div>
           </div>
         ) : null}
 
-        {/* 24/7 Voice AI Tutor Spotlight Banner */}
-        <div className="p-5 sm:p-6 rounded-3xl bg-emerald-50 border border-emerald-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-start sm:items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-800 text-white flex items-center justify-center shrink-0 shadow-xs">
-              <Mic className="w-6 h-6 text-emerald-200 animate-pulse" />
-            </div>
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 bg-emerald-200/70 px-2 py-0.5 rounded-full">
-                  Voice Model Activated
-                </span>
-                <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
-                  <Volume2 className="w-3.5 h-3.5" />
-                  Spoken Audio Answers
-                </span>
+        {/* 2. Key Metrics & Progress Overview (4 Cards) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: Course Progress */}
+          <div className="p-5 rounded-3xl bg-white border border-stone-200/90 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-stone-500">Course Progress</span>
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                <CheckCircle2 className="w-4 h-4" />
               </div>
-              <h3 className="text-sm sm:text-base font-bold text-stone-900">
-                Practice Speaking with Akib Sir anytime
-              </h3>
-              <p className="text-xs text-stone-600">
-                Tap the microphone in any lesson to speak your doubts, test sentences, and listen to explanations in audio.
+            </div>
+            <div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-black text-stone-900">
+                  {completedCount}{" "}
+                  <span className="text-xs font-medium text-stone-400">/ {totalLessonsCount}</span>
+                </span>
+                <span className="text-xs font-bold text-emerald-700">{completionPercentage}%</span>
+              </div>
+              <div className="w-full bg-stone-100 rounded-full h-2 mt-2 overflow-hidden">
+                <div
+                  className="bg-emerald-600 h-2 rounded-full transition-all duration-500"
+                  style={{ width: `${completionPercentage}%` }}
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-stone-500 font-medium">
+              {completedCount === totalLessonsCount && totalLessonsCount > 0
+                ? "🎉 All published lessons completed!"
+                : `${totalLessonsCount - completedCount} lessons remaining`}
+            </p>
+          </div>
+
+          {/* Card 2: Needs Revision */}
+          <div
+            onClick={() => setActiveTab("revision")}
+            className="p-5 rounded-3xl bg-white border border-stone-200/90 shadow-2xs space-y-3 cursor-pointer hover:border-amber-400 transition group"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-stone-500">Needs Revision</span>
+              <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center group-hover:scale-110 transition">
+                <RotateCcw className="w-4 h-4" />
+              </div>
+            </div>
+            <div>
+              <span className="text-2xl font-black text-stone-900">{revisionCount}</span>
+              <span className="text-xs text-stone-400 ml-1">
+                {revisionCount === 1 ? "lesson flagged" : "lessons flagged"}
+              </span>
+            </div>
+            <span className="text-[11px] text-amber-700 font-bold flex items-center gap-1 group-hover:underline">
+              <span>View revision list</span>
+              <ArrowRight className="w-3 h-3" />
+            </span>
+          </div>
+
+          {/* Card 3: Study Notes */}
+          <Link
+            to="/notes"
+            className="p-5 rounded-3xl bg-white border border-stone-200/90 shadow-2xs space-y-3 hover:border-indigo-400 transition group block"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-stone-500">My Study Notes</span>
+              <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center group-hover:scale-110 transition">
+                <FileText className="w-4 h-4" />
+              </div>
+            </div>
+            <div>
+              <span className="text-2xl font-black text-stone-900">{userNotes.length}</span>
+              <span className="text-xs text-stone-400 ml-1">
+                {userNotes.length === 1 ? "saved note" : "saved notes"}
+              </span>
+            </div>
+            <span className="text-[11px] text-indigo-700 font-bold flex items-center gap-1 group-hover:underline">
+              <span>Open Notes Vault</span>
+              <ArrowRight className="w-3 h-3" />
+            </span>
+          </Link>
+
+          {/* Card 4: 24/7 AI Tutor Voice Status */}
+          <div className="p-5 rounded-3xl bg-white border border-stone-200/90 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-stone-500">Akib Sir Voice AI</span>
+              <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center">
+                <Mic className="w-4 h-4 animate-pulse" />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="text-base font-bold text-stone-900">Online &amp; Active</span>
+              </div>
+              <p className="text-[11px] text-stone-500 mt-1">
+                Voice input with spoken audio explanations in natural Hinglish.
               </p>
+            </div>
+            {latestClass && (
+              <Link
+                to={`/lessons/${latestClass.id}`}
+                className="text-[11px] text-purple-700 font-bold flex items-center gap-1 hover:underline"
+              >
+                <span>Practice with Voice</span>
+                <ArrowRight className="w-3 h-3" />
+              </Link>
+            )}
+          </div>
+        </div>
+
+        {/* 4. Curriculum Explorer (Tabs & Live Search) */}
+        <div className="bg-white rounded-3xl border border-stone-200/90 p-6 sm:p-8 shadow-xs space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 pb-5">
+            {/* Tab Navigation */}
+            <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setActiveTab("classes")}
+                className={`px-4 py-2 rounded-xl transition cursor-pointer flex items-center gap-2 ${
+                  activeTab === "classes"
+                    ? "bg-emerald-800 text-white shadow-xs"
+                    : "bg-stone-100 text-stone-700 hover:bg-stone-200"
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Daily Classes</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">
+                  {dailyClasses.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("topics")}
+                className={`px-4 py-2 rounded-xl transition cursor-pointer flex items-center gap-2 ${
+                  activeTab === "topics"
+                    ? "bg-emerald-800 text-white shadow-xs"
+                    : "bg-stone-100 text-stone-700 hover:bg-stone-200"
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Foundational Topics</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">
+                  {topics.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("revision")}
+                className={`px-4 py-2 rounded-xl transition cursor-pointer flex items-center gap-2 ${
+                  activeTab === "revision"
+                    ? "bg-amber-600 text-white shadow-xs"
+                    : "bg-stone-100 text-stone-700 hover:bg-stone-200"
+                }`}
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Needs Revision</span>
+                {revisionCount > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-800 text-white">
+                    {revisionCount}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("completed")}
+                className={`px-4 py-2 rounded-xl transition cursor-pointer flex items-center gap-2 ${
+                  activeTab === "completed"
+                    ? "bg-emerald-700 text-white shadow-xs"
+                    : "bg-stone-100 text-stone-700 hover:bg-stone-200"
+                }`}
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Completed</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">
+                  {completedCount}
+                </span>
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="relative w-full sm:w-64">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search classes..."
+                className="w-full pl-9 pr-3.5 py-2 text-xs rounded-xl border border-stone-300 focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition"
+              />
+              <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
 
-          {latestClass && (
-            <Link
-              to={`/lessons/${latestClass.id}`}
-              className="px-4 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs flex items-center justify-center gap-2 transition shrink-0 shadow-2xs"
-            >
-              <span>Try Voice Practice</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          )}
-        </div>
-
-        {/* Grid: Recent Daily Classes & Foundational Topics */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Recent Daily Classes */}
-          <section className="space-y-4">
-            <div className="flex items-center justify-between border-b border-stone-200 pb-2">
-              <h2 className="text-base font-bold text-stone-900 flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-emerald-700" />
-                <span>Recent Daily Classes</span>
-              </h2>
-              <Link to="/lessons" className="text-xs text-emerald-800 hover:underline font-semibold">
-                See all classes &rarr;
-              </Link>
+          {/* Lesson Cards Grid */}
+          {isLoading ? (
+            <div className="py-16 text-center text-stone-400 flex items-center justify-center gap-2">
+              <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
+              <span className="text-xs">Loading curriculum...</span>
             </div>
+          ) : filteredList.length === 0 ? (
+            <div className="text-center py-16 px-4 space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-stone-100 text-stone-400 flex items-center justify-center mx-auto">
+                <BookOpen className="w-6 h-6" />
+              </div>
+              <p className="text-sm font-bold text-stone-700">
+                {activeTab === "revision"
+                  ? "No lessons flagged for revision!"
+                  : activeTab === "completed"
+                  ? "No lessons completed yet."
+                  : "No lessons found matching your search."}
+              </p>
+              <p className="text-xs text-stone-500 max-w-sm mx-auto">
+                {activeTab === "revision"
+                  ? "When studying any class, click 'Mark for Revision' to keep tricky concepts right here."
+                  : "Start with today's daily class to begin building your streak."}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredList.map((lesson, idx) => {
+                const comp = completionMap.get(lesson.id)
+                const isCompleted = comp?.completed
+                const isRevision = comp?.needs_revision
+                const isTopic = lesson.lesson_type === 1
+                const linkTarget = isTopic ? `/topics/${lesson.id}` : `/lessons/${lesson.id}`
 
-            <div className="space-y-3">
-              {previousClasses.length === 0 ? (
-                <p className="text-xs text-stone-500 py-4">No daily classes found.</p>
-              ) : (
-                previousClasses.map((lesson) => (
+                return (
                   <Link
                     key={lesson.id}
-                    to={`/lessons/${lesson.id}`}
-                    className="block p-4 rounded-2xl bg-white border border-stone-200/90 hover:border-emerald-500/50 hover:shadow-2xs transition group"
+                    to={linkTarget}
+                    className="p-5 rounded-2xl bg-white border border-stone-200/90 hover:border-emerald-500/70 hover:shadow-xs transition group flex flex-col justify-between space-y-3"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 font-mono">
-                            {lesson.lesson_date}
-                          </span>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {isTopic ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-stone-100 text-stone-700">
+                              Topic #{idx + 1}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-mono text-stone-400 font-semibold">
+                              {lesson.lesson_date}
+                            </span>
+                          )}
+
                           {lesson.topic && (
-                            <span className="text-[10px] font-semibold text-emerald-700">
-                              &bull; {lesson.topic}
+                            <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full">
+                              {lesson.topic}
                             </span>
                           )}
                         </div>
-                        <h3 className="text-sm font-bold text-stone-900 group-hover:text-emerald-800 transition">
-                          {lesson.title}
-                        </h3>
-                        <p className="text-xs text-stone-500 line-clamp-1">Daily practical speaking class.</p>
+
+                        {/* Status Tags */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {isCompleted && (
+                            <span
+                              className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center"
+                              title="Completed"
+                            >
+                              <Check className="w-3 h-3" />
+                            </span>
+                          )}
+                          {isRevision && (
+                            <span
+                              className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center"
+                              title="Needs Revision"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <ArrowRight className="w-4 h-4 text-stone-300 group-hover:text-emerald-700 group-hover:translate-x-1 transition shrink-0 mt-1" />
+
+                      <h3 className="text-sm font-bold text-stone-900 group-hover:text-emerald-800 transition line-clamp-2">
+                        {lesson.title}
+                      </h3>
+
+                      <p className="text-xs text-stone-500 line-clamp-1">
+                        {isTopic
+                          ? "Foundational English grammar & concept overview."
+                          : "Daily practical speaking class with workplace & daily life examples."}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-stone-400 pt-2 border-t border-stone-100">
+                      <span className="text-[11px] font-semibold text-emerald-700 group-hover:underline flex items-center gap-1">
+                        <span>{isCompleted ? "Review Class" : "Start Class"}</span>
+                        <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition" />
+                      </span>
+                      <span className="text-[10px] flex items-center gap-1">
+                        <Mic className="w-3 h-3 text-stone-400" />
+                        <span>Voice Enabled</span>
+                      </span>
                     </div>
                   </Link>
-                ))
-              )}
+                )
+              })}
             </div>
-          </section>
+          )}
+        </div>
 
-          {/* Foundational Topics */}
-          <section className="space-y-4">
-            <div className="flex items-center justify-between border-b border-stone-200 pb-2">
-              <h2 className="text-base font-bold text-stone-900 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-emerald-600" />
-                <span>Foundational Grammar & Speaking</span>
-              </h2>
-              <Link to="/topics" className="text-xs text-emerald-800 hover:underline font-semibold">
-                See all topics &rarr;
+        {/* 5. Recent Notes Section (If student has notes) */}
+        {userNotes.length > 0 && (
+          <div className="bg-white rounded-3xl border border-stone-200/90 p-6 sm:p-7 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-stone-900 font-bold text-base">
+                <FileText className="w-4 h-4 text-emerald-700" />
+                <span>Your Recent Study Notes</span>
+              </div>
+              <Link
+                to="/notes"
+                className="text-xs font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-1"
+              >
+                <span>View All ({userNotes.length})</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
-            <div className="space-y-3">
-              {topics.length === 0 ? (
-                <p className="text-xs text-stone-500 py-4">No topics found.</p>
-              ) : (
-                topics.slice(0, 4).map((topic, index) => (
-                  <Link
-                    key={topic.id}
-                    to={`/topics/${topic.id}`}
-                    className="block p-4 rounded-2xl bg-white border border-stone-200/90 hover:border-emerald-500/50 hover:shadow-2xs transition group"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800">
-                            Topic #{index + 1}
-                          </span>
-                        </div>
-                        <h3 className="text-sm font-bold text-stone-900 group-hover:text-emerald-800 transition">
-                          {topic.title}
-                        </h3>
-                        <p className="text-xs text-stone-500 line-clamp-1">Foundational English grammar & concept overview.</p>
-                      </div>
-                      <ArrowRight className="w-4 h-4 text-stone-300 group-hover:text-emerald-700 group-hover:translate-x-1 transition shrink-0 mt-1" />
-                    </div>
-                  </Link>
-                ))
-              )}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+              {userNotes.slice(0, 3).map((note) => (
+                <Link
+                  key={note.id}
+                  to="/notes"
+                  className="p-4 rounded-2xl bg-stone-50/80 border border-stone-200/80 hover:border-emerald-500/60 hover:bg-white transition space-y-2 block group"
+                >
+                  <div className="flex items-center justify-between text-[10px] font-semibold text-stone-400">
+                    <span>
+                      {new Date(note.created_at).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </span>
+                    <span className="text-emerald-700 group-hover:underline">Open Note &rarr;</span>
+                  </div>
+                  <p className="text-xs text-stone-800 line-clamp-3 leading-relaxed font-medium">
+                    {note.content}
+                  </p>
+                </Link>
+              ))}
             </div>
-          </section>
-        </div>
+          </div>
+        )}
       </div>
     )
   }

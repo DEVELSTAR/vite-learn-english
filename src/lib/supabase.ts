@@ -311,7 +311,15 @@ export async function getLessonCompletion(
   userId: number,
   lessonId: number
 ): Promise<LessonCompletion | null> {
-  if (!supabase) return null
+  if (!supabase) {
+    try {
+      const raw = localStorage.getItem("learn_english_mock_completions")
+      const list: LessonCompletion[] = raw ? JSON.parse(raw) : []
+      return list.find((c) => c.user_id === userId && c.lesson_id === lessonId) || null
+    } catch {
+      return null
+    }
+  }
   try {
     const { data } = await supabase
       .from("lesson_completions")
@@ -322,6 +330,29 @@ export async function getLessonCompletion(
     return data || null
   } catch {
     return null
+  }
+}
+
+export async function fetchUserCompletions(userId: number): Promise<LessonCompletion[]> {
+  if (!supabase) {
+    try {
+      const raw = localStorage.getItem("learn_english_mock_completions")
+      const list: LessonCompletion[] = raw ? JSON.parse(raw) : []
+      return list.filter((c) => c.user_id === userId)
+    } catch {
+      return []
+    }
+  }
+  try {
+    const { data, error } = await supabase
+      .from("lesson_completions")
+      .select("*")
+      .eq("user_id", userId)
+    if (error) throw error
+    return (data || []) as LessonCompletion[]
+  } catch (err) {
+    console.error("fetchUserCompletions error:", err)
+    return []
   }
 }
 
@@ -343,15 +374,39 @@ export async function toggleCompletion(
   let result: LessonCompletion
 
   if (!supabase) {
-    result = {
-      id: Date.now(),
-      user_id: userId,
-      lesson_id: lessonId,
-      completed: field === "completed" ? nextVal : false,
-      needs_revision: field === "needs_revision" ? nextVal : false,
-      completed_at: field === "completed" && nextVal ? new Date().toISOString() : null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+    const raw = localStorage.getItem("learn_english_mock_completions")
+    let list: LessonCompletion[] = []
+    try {
+      list = raw ? JSON.parse(raw) : []
+    } catch {
+      list = []
+    }
+    const idx = list.findIndex((c) => c.user_id === userId && c.lesson_id === lessonId)
+    if (idx >= 0) {
+      list[idx] = {
+        ...list[idx],
+        [field]: !list[idx][field],
+        ...(field === "completed" ? { completed_at: !list[idx].completed ? new Date().toISOString() : null } : {}),
+        updated_at: new Date().toISOString(),
+      }
+      result = list[idx]
+    } else {
+      result = {
+        id: Date.now(),
+        user_id: userId,
+        lesson_id: lessonId,
+        completed: field === "completed",
+        needs_revision: field === "needs_revision",
+        completed_at: field === "completed" ? new Date().toISOString() : null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      list.push(result)
+    }
+    try {
+      localStorage.setItem("learn_english_mock_completions", JSON.stringify(list))
+    } catch {
+      // ignore
     }
   } else if (existing) {
     const updatePayload: Record<string, any> = {
