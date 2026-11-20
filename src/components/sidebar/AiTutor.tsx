@@ -389,7 +389,8 @@ export default function AiTutor({ lesson }: AiTutorProps) {
           lesson.id,
           currentUser.id,
           "user",
-          isVoiceMsg ? `🎙️ [Voice Question] ${textToSend}` : textToSend
+          isVoiceMsg ? `🎙️ [Voice Question] ${textToSend}` : textToSend,
+          currentUser
         )
         userDbId = saved.id
         userMsg.id = userDbId
@@ -475,7 +476,7 @@ export default function AiTutor({ lesson }: AiTutorProps) {
 
     try {
       if (msg.id && currentUser?.id) {
-        await updateLessonChatMessage(msg.id, currentUser.id, newText)
+        await updateLessonChatMessage(msg.id, currentUser.id, newText, currentUser)
       }
 
       const nextMessages = [...messages]
@@ -529,7 +530,7 @@ export default function AiTutor({ lesson }: AiTutorProps) {
 
     try {
       if (msg.id && currentUser?.id) {
-        await deleteLessonChatMessage(msg.id, currentUser.id)
+        await deleteLessonChatMessage(msg.id, currentUser.id, currentUser)
       }
       setMessages((prev) => prev.filter((_, i) => i !== idx))
       if (editingIdx === idx) cancelEdit()
@@ -545,7 +546,7 @@ export default function AiTutor({ lesson }: AiTutorProps) {
 
     try {
       if (currentUser?.id) {
-        await clearLessonChatMessages(lesson.id, currentUser.id)
+        await clearLessonChatMessages(lesson.id, currentUser.id, currentUser)
       }
       handleStopSpeaking()
       setMessages([])

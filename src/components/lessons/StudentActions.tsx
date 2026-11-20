@@ -34,7 +34,7 @@ export default function StudentActions({ lessonId }: StudentActionsProps) {
 
     setIsLoading(true)
     try {
-      const updated = await toggleCompletion(currentUser.id, lessonId, type)
+      const updated = await toggleCompletion(currentUser.id, lessonId, type, currentUser)
       setCompleted(updated.completed)
       setNeedsRevision(updated.needs_revision)
     } catch (err: any) {

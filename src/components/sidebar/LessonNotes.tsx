@@ -99,13 +99,17 @@ export default function LessonNotes({ lesson, onNotesCountChange }: LessonNotesP
 
     setIsSaving(true)
     try {
-      const saved = await createNoteWithSharing(currentUser.id, {
-        content: newContent.trim(),
-        lessonId: lesson.id,
-        isGlobal: sharingMode === "global",
-        inviteUserIds: sharingMode === "shared" ? selectedStudentIds : [],
-        inviteCanEdit,
-      })
+      const saved = await createNoteWithSharing(
+        currentUser.id,
+        {
+          content: newContent.trim(),
+          lessonId: lesson.id,
+          isGlobal: sharingMode === "global",
+          inviteUserIds: sharingMode === "shared" ? selectedStudentIds : [],
+          inviteCanEdit,
+        },
+        currentUser
+      )
 
       const updated = [saved, ...notes]
       setNotes(updated)
@@ -141,7 +145,8 @@ export default function LessonNotes({ lesson, onNotesCountChange }: LessonNotesP
         noteId,
         currentUser.id,
         { content: editContent.trim() },
-        isSuperAdmin
+        isSuperAdmin,
+        currentUser
       )
       setNotes((prev) =>
         prev.map((n) => (n.id === noteId ? { ...n, content: updated.content, updated_at: updated.updated_at } : n))
@@ -160,7 +165,7 @@ export default function LessonNotes({ lesson, onNotesCountChange }: LessonNotesP
     if (!confirm("Are you sure you want to delete this note?")) return
 
     try {
-      await deleteNote(noteId, currentUser.id, isSuperAdmin)
+      await deleteNote(noteId, currentUser.id, isSuperAdmin, currentUser)
       const updated = notes.filter((n) => n.id !== noteId)
       setNotes(updated)
       onNotesCountChange?.(updated.length)

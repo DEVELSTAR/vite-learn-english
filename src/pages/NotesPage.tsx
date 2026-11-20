@@ -132,7 +132,7 @@ export default function NotesPage() {
   // Handle Invitation Response
   const handleRespondToShare = async (shareId: number, status: 1 | 2) => {
     try {
-      await respondToNoteShare(shareId, status)
+      await respondToNoteShare(shareId, status, currentUser)
       // Remove from pending shares list
       setPendingShares((prev) => prev.filter((s) => s.id !== shareId))
       // Refresh visible notes
@@ -154,13 +154,17 @@ export default function NotesPage() {
 
     setIsPosting(true)
     try {
-      const newNote = await createNoteWithSharing(currentUser.id, {
-        content: content.trim(),
-        lessonId: formLessonId,
-        isGlobal: sharingMode === "global",
-        inviteUserIds: sharingMode === "shared" ? selectedStudentIds : [],
-        inviteCanEdit,
-      })
+      const newNote = await createNoteWithSharing(
+        currentUser.id,
+        {
+          content: content.trim(),
+          lessonId: formLessonId,
+          isGlobal: sharingMode === "global",
+          inviteUserIds: sharingMode === "shared" ? selectedStudentIds : [],
+          inviteCanEdit,
+        },
+        currentUser
+      )
 
       setNotes((prev) => [newNote, ...prev])
       setContent("")
@@ -207,7 +211,8 @@ export default function NotesPage() {
           inviteUserIds: editSharingMode === "shared" ? editSelectedStudentIds : [],
           inviteCanEdit: editInviteCanEdit,
         },
-        isSuperAdmin
+        isSuperAdmin,
+        currentUser
       )
 
       setNotes((prev) => prev.map((n) => (n.id === noteId ? updated : n)))
@@ -225,7 +230,7 @@ export default function NotesPage() {
     if (!confirm("Are you sure you want to delete this study note?")) return
 
     try {
-      await deleteNote(noteId, currentUser.id, isSuperAdmin)
+      await deleteNote(noteId, currentUser.id, isSuperAdmin, currentUser)
       setNotes((prev) => prev.filter((n) => n.id !== noteId))
       if (editingNoteId === noteId) cancelEdit()
     } catch (err: any) {

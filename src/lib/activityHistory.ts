@@ -14,6 +14,8 @@ export interface ActivityRecord {
   resource_id?: string | number
   resource_title?: string
   details: string
+  old_value?: string
+  new_value?: string
   created_at: string
 }
 

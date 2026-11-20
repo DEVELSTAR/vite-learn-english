@@ -328,16 +328,32 @@ export async function getLessonCompletion(
 export async function toggleCompletion(
   userId: number,
   lessonId: number,
-  field: "completed" | "needs_revision"
+  field: "completed" | "needs_revision",
+  user?: Pick<User, "id" | "name" | "email_address" | "role"> | null
 ): Promise<LessonCompletion> {
-  if (!supabase) {
-    throw new Error("Supabase is not configured.")
+  let existing: LessonCompletion | null = null
+  if (supabase) {
+    existing = await getLessonCompletion(userId, lessonId)
   }
 
-  const existing = await getLessonCompletion(userId, lessonId)
+  const prevVal = existing ? Boolean(existing[field]) : false
+  const nextVal = !prevVal
+  const label = field === "completed" ? "Completed status" : "Needs Revision flag"
 
-  if (existing) {
-    const nextVal = !existing[field]
+  let result: LessonCompletion
+
+  if (!supabase) {
+    result = {
+      id: Date.now(),
+      user_id: userId,
+      lesson_id: lessonId,
+      completed: field === "completed" ? nextVal : false,
+      needs_revision: field === "needs_revision" ? nextVal : false,
+      completed_at: field === "completed" && nextVal ? new Date().toISOString() : null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+  } else if (existing) {
     const updatePayload: Record<string, any> = {
       [field]: nextVal,
       updated_at: new Date().toISOString(),
@@ -354,7 +370,7 @@ export async function toggleCompletion(
       .single()
 
     if (error) throw error
-    return data
+    result = data as LessonCompletion
   } else {
     const insertPayload: Record<string, any> = {
       user_id: userId,
@@ -373,13 +389,43 @@ export async function toggleCompletion(
       .single()
 
     if (error) throw error
-    return data
+    result = data as LessonCompletion
   }
+
+  logActivity({
+    user_id: userId,
+    user_name: user?.name || "Student",
+    user_email: user?.email_address || "",
+    user_role: user?.role ?? 0,
+    action: "update",
+    resource_type: "lesson",
+    resource_id: lessonId,
+    resource_title: `Lesson #${lessonId}`,
+    details: `Updated lesson #${lessonId} ${label}: ${prevVal} ➔ ${nextVal}`,
+    old_value: String(prevVal),
+    new_value: String(nextVal),
+  })
+
+  return result
 }
 
 // 6. Discussion Comments
+let MOCK_COMMENTS: LessonComment[] = [
+  {
+    id: 1,
+    lesson_id: 1,
+    user_id: 3,
+    content: "Akib Sir, how do we politely say 'give me coffee'?",
+    created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
+    updated_at: new Date(Date.now() - 3600000 * 2).toISOString(),
+    user: { id: 3, name: "Aman Sharma", email_address: "aman@example.com", role: 0 },
+  },
+]
+
 export async function fetchLessonComments(lessonId: number): Promise<LessonComment[]> {
-  if (!supabase) return []
+  if (!supabase) {
+    return MOCK_COMMENTS.filter((c) => c.lesson_id === lessonId)
+  }
   try {
     const { data, error } = await supabase
       .from("lesson_comments")
@@ -391,7 +437,7 @@ export async function fetchLessonComments(lessonId: number): Promise<LessonComme
     return (data || []) as LessonComment[]
   } catch (err) {
     console.error("Error fetching comments:", err)
-    return []
+    return MOCK_COMMENTS.filter((c) => c.lesson_id === lessonId)
   }
 }
 
@@ -399,104 +445,193 @@ export async function postLessonComment(
   lessonId: number,
   userId: number,
   content: string,
-  parentId?: number | null
+  parentId?: number | null,
+  user?: Pick<User, "id" | "name" | "email_address" | "role"> | null
 ): Promise<LessonComment> {
-  if (!supabase) throw new Error("Supabase not configured")
+  const trimmed = content.trim()
+  let result: LessonComment
 
-  const { data, error } = await supabase
-    .from("lesson_comments")
-    .insert({
+  if (!supabase) {
+    result = {
+      id: Date.now(),
       lesson_id: lessonId,
       user_id: userId,
       parent_id: parentId || null,
-      content: content.trim(),
+      content: trimmed,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    })
-    .select("*, user:users(id, name, email_address, role)")
-    .single()
+      user: user || MOCK_USERS.find((u) => u.id === userId),
+    }
+    MOCK_COMMENTS.push(result)
+  } else {
+    const { data, error } = await supabase
+      .from("lesson_comments")
+      .insert({
+        lesson_id: lessonId,
+        user_id: userId,
+        parent_id: parentId || null,
+        content: trimmed,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select("*, user:users(id, name, email_address, role)")
+      .single()
 
-  if (error) throw error
+    if (error) throw error
+    result = data as LessonComment
+  }
 
   logActivity({
     user_id: userId,
-    user_name: data.user?.name || "Student",
-    user_email: data.user?.email_address || "",
-    user_role: data.user?.role ?? 0,
+    user_name: user?.name || result.user?.name || "Student",
+    user_email: user?.email_address || result.user?.email_address || "",
+    user_role: user?.role ?? result.user?.role ?? 0,
     action: "create",
     resource_type: "comment",
-    resource_id: data.id,
+    resource_id: result.id,
     resource_title: `Lesson #${lessonId}`,
-    details: `Posted discussion comment on lesson #${lessonId}`,
+    details: parentId
+      ? `Posted reply to comment #${parentId} on lesson #${lessonId}: "${trimmed}"`
+      : `Posted discussion comment on lesson #${lessonId}: "${trimmed}"`,
+    new_value: trimmed,
   })
 
-  return data as LessonComment
+  return result
 }
 
 export async function updateLessonComment(
   commentId: number,
   userId: number,
-  content: string
+  content: string,
+  user?: Pick<User, "id" | "name" | "email_address" | "role"> | null
 ): Promise<LessonComment> {
-  if (!supabase) throw new Error("Supabase not configured")
+  const trimmed = content.trim()
+  let oldContent = ""
+  let result: LessonComment
 
-  const { data, error } = await supabase
-    .from("lesson_comments")
-    .update({
-      content: content.trim(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", commentId)
-    .eq("user_id", userId)
-    .select("*, user:users(id, name, email_address, role)")
-    .single()
+  if (!supabase) {
+    const found = MOCK_COMMENTS.find((c) => c.id === commentId)
+    if (found) {
+      oldContent = found.content
+      found.content = trimmed
+      found.updated_at = new Date().toISOString()
+      result = found
+    } else {
+      result = {
+        id: commentId,
+        lesson_id: 1,
+        user_id: userId,
+        content: trimmed,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        user: user || undefined,
+      }
+    }
+  } else {
+    try {
+      const { data: prev } = await supabase
+        .from("lesson_comments")
+        .select("content")
+        .eq("id", commentId)
+        .maybeSingle()
+      if (prev) oldContent = prev.content
+    } catch (e) {
+      console.warn("Could not fetch old comment content:", e)
+    }
 
-  if (error) throw error
+    const { data, error } = await supabase
+      .from("lesson_comments")
+      .update({
+        content: trimmed,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", commentId)
+      .eq("user_id", userId)
+      .select("*, user:users(id, name, email_address, role)")
+      .single()
+
+    if (error) throw error
+    result = data as LessonComment
+  }
 
   logActivity({
     user_id: userId,
-    user_name: data.user?.name || "Student",
-    user_email: data.user?.email_address || "",
-    user_role: data.user?.role ?? 0,
+    user_name: user?.name || result.user?.name || "Student",
+    user_email: user?.email_address || result.user?.email_address || "",
+    user_role: user?.role ?? result.user?.role ?? 0,
     action: "update",
     resource_type: "comment",
     resource_id: commentId,
-    details: `Updated discussion comment #${commentId}`,
+    resource_title: `Comment #${commentId}`,
+    details: oldContent
+      ? `Updated discussion comment #${commentId}: "${oldContent}" ➔ "${trimmed}"`
+      : `Updated discussion comment #${commentId} to: "${trimmed}"`,
+    old_value: oldContent,
+    new_value: trimmed,
   })
 
-  return data as LessonComment
+  return result
 }
 
 export async function deleteLessonComment(
   commentId: number,
-  userId: number
+  userId: number,
+  user?: Pick<User, "id" | "name" | "email_address" | "role"> | null
 ): Promise<void> {
-  if (!supabase) return
+  let oldComment: any = null
 
-  // Delete nested replies if any
-  try {
-    await supabase.from("lesson_comments").delete().eq("parent_id", commentId)
-  } catch (e) {
-    console.warn("Could not delete child replies:", e)
+  if (!supabase) {
+    const found = MOCK_COMMENTS.find((c) => c.id === commentId)
+    if (found) {
+      oldComment = found
+      MOCK_COMMENTS = MOCK_COMMENTS.filter((c) => c.id !== commentId && c.parent_id !== commentId)
+    }
+  } else {
+    try {
+      const { data: prev } = await supabase
+        .from("lesson_comments")
+        .select("*, user:users(id, name, email_address, role)")
+        .eq("id", commentId)
+        .maybeSingle()
+      oldComment = prev
+    } catch (e) {
+      console.warn("Could not fetch old comment before delete:", e)
+    }
+
+    // Delete nested replies if any
+    try {
+      await supabase.from("lesson_comments").delete().eq("parent_id", commentId)
+    } catch (e) {
+      console.warn("Could not delete child replies:", e)
+    }
+
+    const { error } = await supabase
+      .from("lesson_comments")
+      .delete()
+      .eq("id", commentId)
+      .eq("user_id", userId)
+
+    if (error) throw error
   }
 
-  const { error } = await supabase
-    .from("lesson_comments")
-    .delete()
-    .eq("id", commentId)
-    .eq("user_id", userId)
-
-  if (error) throw error
+  const authorName = user?.name || oldComment?.user?.name || "Student"
+  const authorEmail = user?.email_address || oldComment?.user?.email_address || ""
+  const authorRole = user?.role ?? oldComment?.user?.role ?? 0
+  const deletedText = oldComment?.content || ""
 
   logActivity({
     user_id: userId,
-    user_name: "Student",
-    user_email: "",
-    user_role: 0,
+    user_name: authorName,
+    user_email: authorEmail,
+    user_role: authorRole,
     action: "destroy",
     resource_type: "comment",
     resource_id: commentId,
-    details: `Deleted discussion comment #${commentId}`,
+    resource_title: oldComment?.lesson_id ? `Lesson #${oldComment.lesson_id}` : `Comment #${commentId}`,
+    details: deletedText
+      ? `Deleted discussion comment #${commentId}${oldComment?.lesson_id ? ` on lesson #${oldComment.lesson_id}` : ""}: "${deletedText}"`
+      : `Deleted discussion comment #${commentId}`,
+    old_value: deletedText,
   })
 }
 
@@ -717,17 +852,51 @@ export async function fetchPendingNoteShares(userId: number): Promise<NoteShare[
   }
 }
 
-export async function respondToNoteShare(shareId: number, status: 1 | 2): Promise<void> {
-  if (!supabase) return
-  const { error } = await supabase
-    .from("note_shares")
-    .update({
-      status,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", shareId)
+export async function respondToNoteShare(
+  shareId: number,
+  status: 1 | 2,
+  user?: Pick<User, "id" | "name" | "email_address" | "role"> | null
+): Promise<void> {
+  let shareInfo: any = null
 
-  if (error) throw error
+  if (supabase) {
+    try {
+      const { data } = await supabase
+        .from("note_shares")
+        .select("*, note:notes(*)")
+        .eq("id", shareId)
+        .maybeSingle()
+      shareInfo = data
+    } catch (e) {
+      console.warn("Could not fetch note share info:", e)
+    }
+
+    const { error } = await supabase
+      .from("note_shares")
+      .update({
+        status,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", shareId)
+
+    if (error) throw error
+  }
+
+  const statusLabel = status === 1 ? "Accepted" : "Declined"
+  const noteSnippet = shareInfo?.note?.content ? ` for note: "${shareInfo.note.content.slice(0, 50)}"` : ""
+
+  logActivity({
+    user_id: user?.id || shareInfo?.user_id || 0,
+    user_name: user?.name || "Student",
+    user_email: user?.email_address || "",
+    user_role: user?.role ?? 0,
+    action: "update",
+    resource_type: "note",
+    resource_id: shareId,
+    details: `Responded to note share invite #${shareId}: status changed to ${statusLabel}${noteSnippet}`,
+    old_value: "Pending",
+    new_value: statusLabel,
+  })
 }
 
 export async function fetchAvailableStudents(currentUserId?: number | null): Promise<User[]> {
@@ -762,18 +931,22 @@ export async function createNoteWithSharing(
     isGlobal: boolean
     inviteUserIds?: number[]
     inviteCanEdit?: boolean
-  }
+  },
+  user?: Pick<User, "id" | "name" | "email_address" | "role"> | null
 ): Promise<Note> {
+  const trimmed = payload.content.trim()
+  let resultNote: Note
+
   if (!supabase) {
     const newNote: Note = {
       id: Date.now(),
       user_id: userId,
       lesson_id: payload.lessonId || null,
-      content: payload.content.trim(),
+      content: trimmed,
       is_global: payload.isGlobal,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      user: MOCK_USERS.find((u) => u.id === userId),
+      user: user || MOCK_USERS.find((u) => u.id === userId),
       lesson: payload.lessonId ? MOCK_LESSONS.find((l) => l.id === payload.lessonId) : null,
       note_shares: (payload.inviteUserIds || []).map((uid, idx) => ({
         id: Date.now() + idx,
@@ -787,54 +960,55 @@ export async function createNoteWithSharing(
       })),
     }
     MOCK_NOTES.unshift(newNote)
-    return newNote
-  }
-
-  const { data: note, error: noteError } = await supabase
-    .from("notes")
-    .insert({
-      user_id: userId,
-      lesson_id: payload.lessonId || null,
-      content: payload.content.trim(),
-      is_global: payload.isGlobal,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .select("*, user:users(id, name, email_address, role), lesson:lessons(id, title, lesson_type)")
-    .single()
-
-  if (noteError) throw noteError
-
-  if (!payload.isGlobal && payload.inviteUserIds && payload.inviteUserIds.length > 0) {
-    const sharesToInsert = payload.inviteUserIds
-      .filter((uid) => uid !== userId)
-      .map((uid) => ({
-        note_id: note.id,
-        user_id: uid,
-        can_edit: Boolean(payload.inviteCanEdit),
-        status: 0,
+    resultNote = newNote
+  } else {
+    const { data: note, error: noteError } = await supabase
+      .from("notes")
+      .insert({
+        user_id: userId,
+        lesson_id: payload.lessonId || null,
+        content: trimmed,
+        is_global: payload.isGlobal,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      }))
+      })
+      .select("*, user:users(id, name, email_address, role), lesson:lessons(id, title, lesson_type)")
+      .single()
 
-    if (sharesToInsert.length > 0) {
-      await supabase.from("note_shares").insert(sharesToInsert)
+    if (noteError) throw noteError
+
+    if (!payload.isGlobal && payload.inviteUserIds && payload.inviteUserIds.length > 0) {
+      const sharesToInsert = payload.inviteUserIds
+        .filter((uid) => uid !== userId)
+        .map((uid) => ({
+          note_id: note.id,
+          user_id: uid,
+          can_edit: Boolean(payload.inviteCanEdit),
+          status: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }))
+
+      if (sharesToInsert.length > 0) {
+        await supabase.from("note_shares").insert(sharesToInsert)
+      }
     }
-  }
 
-  const full = await fetchNoteById(note.id)
-  const resultNote = full || (note as Note)
+    const full = await fetchNoteById(note.id)
+    resultNote = full || (note as Note)
+  }
 
   logActivity({
     user_id: userId,
-    user_name: resultNote.user?.name || "Student",
-    user_email: resultNote.user?.email_address || "",
-    user_role: resultNote.user?.role ?? 0,
+    user_name: user?.name || resultNote.user?.name || "Student",
+    user_email: user?.email_address || resultNote.user?.email_address || "",
+    user_role: user?.role ?? resultNote.user?.role ?? 0,
     action: "create",
     resource_type: "note",
     resource_id: resultNote.id,
     resource_title: payload.lessonId ? `Lesson #${payload.lessonId}` : "General Note",
-    details: `Created study note: "${payload.content.slice(0, 60)}${payload.content.length > 60 ? "..." : ""}"`,
+    details: `Created study note: "${trimmed}"${payload.lessonId ? ` (attached to lesson #${payload.lessonId})` : " (general)"}`,
+    new_value: trimmed,
   })
 
   return resultNote
@@ -849,88 +1023,103 @@ export async function updateNoteWithSharing(
     inviteUserIds?: number[]
     inviteCanEdit?: boolean
   },
-  isSuperAdmin = false
+  isSuperAdmin = false,
+  user?: Pick<User, "id" | "name" | "email_address" | "role"> | null
 ): Promise<Note> {
+  const newContent = payload.content.trim()
+  let oldContent = ""
+  let resultNote: Note
+
   if (!supabase) {
     const note = MOCK_NOTES.find((n) => n.id === noteId)
     if (note) {
-      note.content = payload.content.trim()
+      oldContent = note.content
+      note.content = newContent
       note.updated_at = new Date().toISOString()
       if (payload.isGlobal !== undefined) note.is_global = payload.isGlobal
+      resultNote = note
+    } else {
+      resultNote = {} as Note
     }
-    return note || ({} as Note)
-  }
+  } else {
+    const existingNote = await fetchNoteById(noteId)
+    if (!existingNote) throw new Error("Note not found")
+    oldContent = existingNote.content
 
-  const existingNote = await fetchNoteById(noteId)
-  if (!existingNote) throw new Error("Note not found")
+    const isOwner = existingNote.user_id === userId
+    const canEdit = isOwner || isSuperAdmin || (existingNote.note_shares || []).some(
+      (s) => s.user_id === userId && s.status === 1 && s.can_edit === true
+    )
 
-  const isOwner = existingNote.user_id === userId
-  const canEdit = isOwner || isSuperAdmin || (existingNote.note_shares || []).some(
-    (s) => s.user_id === userId && s.status === 1 && s.can_edit === true
-  )
+    if (!canEdit) throw new Error("You are not authorized to edit this note.")
 
-  if (!canEdit) throw new Error("You are not authorized to edit this note.")
+    const updateFields: Record<string, any> = {
+      content: newContent,
+      updated_at: new Date().toISOString(),
+    }
 
-  const updateFields: Record<string, any> = {
-    content: payload.content.trim(),
-    updated_at: new Date().toISOString(),
-  }
+    if ((isOwner || isSuperAdmin) && payload.isGlobal !== undefined) {
+      updateFields.is_global = payload.isGlobal
+    }
 
-  if ((isOwner || isSuperAdmin) && payload.isGlobal !== undefined) {
-    updateFields.is_global = payload.isGlobal
-  }
+    const { error: updateError } = await supabase
+      .from("notes")
+      .update(updateFields)
+      .eq("id", noteId)
 
-  const { error: updateError } = await supabase
-    .from("notes")
-    .update(updateFields)
-    .eq("id", noteId)
+    if (updateError) throw updateError
 
-  if (updateError) throw updateError
+    if ((isOwner || isSuperAdmin) && !payload.isGlobal && payload.inviteUserIds && payload.inviteUserIds.length > 0) {
+      for (const uid of payload.inviteUserIds) {
+        if (uid === userId) continue
 
-  if ((isOwner || isSuperAdmin) && !payload.isGlobal && payload.inviteUserIds && payload.inviteUserIds.length > 0) {
-    for (const uid of payload.inviteUserIds) {
-      if (uid === userId) continue
-
-      const { data: existingShare } = await supabase
-        .from("note_shares")
-        .select("id")
-        .eq("note_id", noteId)
-        .eq("user_id", uid)
-        .maybeSingle()
-
-      if (existingShare?.id) {
-        await supabase
+        const { data: existingShare } = await supabase
           .from("note_shares")
-          .update({
+          .select("id")
+          .eq("note_id", noteId)
+          .eq("user_id", uid)
+          .maybeSingle()
+
+        if (existingShare?.id) {
+          await supabase
+            .from("note_shares")
+            .update({
+              can_edit: Boolean(payload.inviteCanEdit),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", existingShare.id)
+        } else {
+          await supabase.from("note_shares").insert({
+            note_id: noteId,
+            user_id: uid,
             can_edit: Boolean(payload.inviteCanEdit),
+            status: 0,
+            created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
-          .eq("id", existingShare.id)
-      } else {
-        await supabase.from("note_shares").insert({
-          note_id: noteId,
-          user_id: uid,
-          can_edit: Boolean(payload.inviteCanEdit),
-          status: 0,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
+        }
       }
     }
+
+    const refreshed = await fetchNoteById(noteId)
+    resultNote = refreshed || existingNote
   }
 
-  const refreshed = await fetchNoteById(noteId)
-  const resultNote = refreshed || existingNote
+  const contentChanged = oldContent !== newContent
+  const changeDesc = contentChanged ? `"${oldContent}" ➔ "${newContent}"` : `note details updated`
 
   logActivity({
     user_id: userId,
-    user_name: resultNote.user?.name || "Student",
-    user_email: resultNote.user?.email_address || "",
-    user_role: resultNote.user?.role ?? 0,
+    user_name: user?.name || resultNote.user?.name || "Student",
+    user_email: user?.email_address || resultNote.user?.email_address || "",
+    user_role: user?.role ?? resultNote.user?.role ?? 0,
     action: "update",
     resource_type: "note",
     resource_id: noteId,
-    details: `Updated study note #${noteId}`,
+    resource_title: resultNote.lesson_id ? `Lesson #${resultNote.lesson_id}` : "General Note",
+    details: `Updated study note #${noteId}: ${changeDesc}`,
+    old_value: oldContent,
+    new_value: newContent,
   })
 
   return resultNote
@@ -939,32 +1128,49 @@ export async function updateNoteWithSharing(
 export async function deleteNote(
   noteId: number,
   userId: number,
-  isSuperAdmin = false
+  isSuperAdmin = false,
+  user?: Pick<User, "id" | "name" | "email_address" | "role"> | null
 ): Promise<void> {
+  let existingContent = ""
+  let existingUser: any = null
+  let lessonId: number | null | undefined = null
+
   if (!supabase) {
-    MOCK_NOTES = MOCK_NOTES.filter((n) => n.id !== noteId)
-    return
+    const existing = MOCK_NOTES.find((n) => n.id === noteId)
+    if (existing) {
+      existingContent = existing.content
+      existingUser = existing.user
+      lessonId = existing.lesson_id
+      MOCK_NOTES = MOCK_NOTES.filter((n) => n.id !== noteId)
+    }
+  } else {
+    const existing = await fetchNoteById(noteId)
+    if (!existing) return
+    existingContent = existing.content
+    existingUser = existing.user
+    lessonId = existing.lesson_id
+
+    if (existing.user_id !== userId && !isSuperAdmin) {
+      throw new Error("Only the owner can delete this note.")
+    }
+
+    const { error } = await supabase.from("notes").delete().eq("id", noteId)
+    if (error) throw error
   }
-
-  const existing = await fetchNoteById(noteId)
-  if (!existing) return
-
-  if (existing.user_id !== userId && !isSuperAdmin) {
-    throw new Error("Only the owner can delete this note.")
-  }
-
-  const { error } = await supabase.from("notes").delete().eq("id", noteId)
-  if (error) throw error
 
   logActivity({
     user_id: userId,
-    user_name: existing.user?.name || "User",
-    user_email: existing.user?.email_address || "",
-    user_role: existing.user?.role ?? 0,
+    user_name: user?.name || existingUser?.name || "User",
+    user_email: user?.email_address || existingUser?.email_address || "",
+    user_role: user?.role ?? existingUser?.role ?? 0,
     action: "destroy",
     resource_type: "note",
     resource_id: noteId,
-    details: `Deleted study note #${noteId}`,
+    resource_title: lessonId ? `Lesson #${lessonId}` : "General Note",
+    details: existingContent
+      ? `Deleted study note #${noteId}: "${existingContent}"`
+      : `Deleted study note #${noteId}`,
+    old_value: existingContent,
   })
 }
 
@@ -1022,96 +1228,207 @@ export async function saveLessonChatMessage(
   lessonId: number,
   userId: number,
   role: "user" | "assistant" | "model",
-  content: string
+  content: string,
+  user?: Pick<User, "id" | "name" | "email_address" | "role"> | null
 ): Promise<LessonChatMessage> {
+  const trimmed = content.trim()
+  let result: LessonChatMessage
+
   if (!supabase) {
-    return {
+    result = {
       id: Date.now(),
       lesson_id: lessonId,
       user_id: userId,
       role,
-      content,
+      content: trimmed,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }
+  } else {
+    const { data, error } = await supabase
+      .from("lesson_chat_messages")
+      .insert({
+        lesson_id: lessonId,
+        user_id: userId,
+        role,
+        content: trimmed,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    result = data as LessonChatMessage
   }
 
-  const { data, error } = await supabase
-    .from("lesson_chat_messages")
-    .insert({
-      lesson_id: lessonId,
+  if (role === "user") {
+    logActivity({
       user_id: userId,
-      role,
-      content,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      user_name: user?.name || "Student",
+      user_email: user?.email_address || "",
+      user_role: user?.role ?? 0,
+      action: "create",
+      resource_type: "chat",
+      resource_id: result.id,
+      resource_title: `Lesson #${lessonId}`,
+      details: `Sent AI Tutor message on lesson #${lessonId}: "${trimmed}"`,
+      new_value: trimmed,
     })
-    .select()
-    .single()
+  }
 
-  if (error) throw error
-  return data as LessonChatMessage
+  return result
 }
 
 export async function updateLessonChatMessage(
   messageId: number,
   userId: number,
-  content: string
+  content: string,
+  user?: Pick<User, "id" | "name" | "email_address" | "role"> | null
 ): Promise<LessonChatMessage> {
+  const trimmed = content.trim()
+  let oldContent = ""
+  let lessonId = 0
+  let result: LessonChatMessage
+
   if (!supabase) {
-    return {
+    result = {
       id: messageId,
       lesson_id: 0,
       user_id: userId,
       role: "user",
-      content,
+      content: trimmed,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }
+  } else {
+    try {
+      const { data: ex } = await supabase
+        .from("lesson_chat_messages")
+        .select("content, lesson_id")
+        .eq("id", messageId)
+        .maybeSingle()
+      if (ex) {
+        oldContent = ex.content
+        lessonId = ex.lesson_id
+      }
+    } catch {}
+
+    const { data, error } = await supabase
+      .from("lesson_chat_messages")
+      .update({
+        content: trimmed,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", messageId)
+      .eq("user_id", userId)
+      .select()
+      .single()
+
+    if (error) throw error
+    result = data as LessonChatMessage
   }
 
-  const { data, error } = await supabase
-    .from("lesson_chat_messages")
-    .update({
-      content: content.trim(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", messageId)
-    .eq("user_id", userId)
-    .select()
-    .single()
+  logActivity({
+    user_id: userId,
+    user_name: user?.name || "Student",
+    user_email: user?.email_address || "",
+    user_role: user?.role ?? 0,
+    action: "update",
+    resource_type: "chat",
+    resource_id: messageId,
+    resource_title: lessonId ? `Lesson #${lessonId}` : `Message #${messageId}`,
+    details: oldContent
+      ? `Updated AI Tutor message #${messageId}: "${oldContent}" ➔ "${trimmed}"`
+      : `Updated AI Tutor message #${messageId} to: "${trimmed}"`,
+    old_value: oldContent,
+    new_value: trimmed,
+  })
 
-  if (error) throw error
-  return data as LessonChatMessage
+  return result
 }
 
 export async function deleteLessonChatMessage(
   messageId: number,
-  userId: number
+  userId: number,
+  user?: Pick<User, "id" | "name" | "email_address" | "role"> | null
 ): Promise<void> {
-  if (!supabase) return
+  let oldContent = ""
+  let lessonId: number | undefined
 
-  const { error } = await supabase
-    .from("lesson_chat_messages")
-    .delete()
-    .eq("id", messageId)
-    .eq("user_id", userId)
+  if (supabase) {
+    try {
+      const { data: ex } = await supabase
+        .from("lesson_chat_messages")
+        .select("content, lesson_id")
+        .eq("id", messageId)
+        .maybeSingle()
+      if (ex) {
+        oldContent = ex.content
+        lessonId = ex.lesson_id
+      }
+    } catch {}
 
-  if (error) throw error
+    const { error } = await supabase
+      .from("lesson_chat_messages")
+      .delete()
+      .eq("id", messageId)
+      .eq("user_id", userId)
+
+    if (error) throw error
+  }
+
+  logActivity({
+    user_id: userId,
+    user_name: user?.name || "Student",
+    user_email: user?.email_address || "",
+    user_role: user?.role ?? 0,
+    action: "destroy",
+    resource_type: "chat",
+    resource_id: messageId,
+    resource_title: lessonId ? `Lesson #${lessonId}` : `Message #${messageId}`,
+    details: oldContent
+      ? `Deleted AI Tutor message #${messageId}: "${oldContent}"`
+      : `Deleted AI Tutor message #${messageId}`,
+    old_value: oldContent,
+  })
 }
 
 export async function clearLessonChatMessages(
   lessonId: number,
-  userId: number
+  userId: number,
+  user?: Pick<User, "id" | "name" | "email_address" | "role"> | null
 ): Promise<void> {
-  if (!supabase) return
+  let msgCount = 0
 
-  const { error } = await supabase
-    .from("lesson_chat_messages")
-    .delete()
-    .eq("lesson_id", lessonId)
-    .eq("user_id", userId)
+  if (supabase) {
+    try {
+      const { count } = await supabase
+        .from("lesson_chat_messages")
+        .select("*", { count: "exact", head: true })
+        .eq("lesson_id", lessonId)
+        .eq("user_id", userId)
+      msgCount = count || 0
+    } catch {}
 
-  if (error) throw error
+    const { error } = await supabase
+      .from("lesson_chat_messages")
+      .delete()
+      .eq("lesson_id", lessonId)
+      .eq("user_id", userId)
+
+    if (error) throw error
+  }
+
+  logActivity({
+    user_id: userId,
+    user_name: user?.name || "Student",
+    user_email: user?.email_address || "",
+    user_role: user?.role ?? 0,
+    action: "destroy",
+    resource_type: "chat",
+    resource_title: `Lesson #${lessonId}`,
+    details: `Cleared AI Tutor chat history on lesson #${lessonId}${msgCount > 0 ? ` (${msgCount} messages deleted)` : ""}`,
+  })
 }
 

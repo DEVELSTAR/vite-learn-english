@@ -340,7 +340,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           user_role: 0,
           action: "signup",
           resource_type: "auth",
-          details: "New student account registered",
+          details: `New student account registered: ${newUser.name} (${newUser.email_address})`,
+          new_value: `Name: ${newUser.name}, Email: ${newUser.email_address}`,
         })
         return { success: true }
       } catch (err: any) {
@@ -366,7 +367,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user_role: 0,
       action: "signup",
       resource_type: "auth",
-      details: "New student account registered (offline mode)",
+      details: `New student account registered: ${newStudent.name} (${newStudent.email_address}) [offline mode]`,
+      new_value: `Name: ${newStudent.name}, Email: ${newStudent.email_address}`,
     })
     return { success: true }
   }
@@ -403,6 +405,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await saveUserProfileIcon(currentUser.id, data.profile_icon)
     }
 
+    const profileChanges: string[] = []
+    if (data.name && data.name.trim() !== currentUser.name) {
+      profileChanges.push(`name: "${currentUser.name}" ➔ "${data.name.trim()}"`)
+    }
+    if (data.email_address && data.email_address.trim().toLowerCase() !== currentUser.email_address.toLowerCase()) {
+      profileChanges.push(`email: "${currentUser.email_address}" ➔ "${data.email_address.trim().toLowerCase()}"`)
+    }
+    if (data.profile_icon && data.profile_icon !== (currentUser.profile_icon || "👤")) {
+      profileChanges.push(`icon: "${currentUser.profile_icon || "👤"}" ➔ "${data.profile_icon}"`)
+    }
+    if (data.password && data.password.trim()) {
+      profileChanges.push(`password: changed`)
+    }
+    const profileChangeSummary = profileChanges.length > 0 ? profileChanges.join(", ") : "profile details updated"
+
     if (isSupabaseConfigured && supabase) {
       try {
         const { data: updated, error } = await supabase
@@ -432,7 +449,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           resource_type: "user",
           resource_id: currentUser.id,
           resource_title: updated.name,
-          details: `User updated profile information${data.password ? " and changed password" : ""}`,
+          details: `Student updated profile: ${profileChangeSummary}`,
+          old_value: `${currentUser.name} (${currentUser.email_address})`,
+          new_value: `${updated.name} (${updated.email_address})`,
         })
 
         return { success: true }
@@ -453,6 +472,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       saveStudentPassword(currentUser.id, data.password.trim())
     }
     saveSession(updatedUser)
+    logActivity({
+      user_id: currentUser.id,
+      user_name: updatedUser.name,
+      user_email: updatedUser.email_address,
+      user_role: updatedUser.role,
+      action: "update",
+      resource_type: "user",
+      resource_id: currentUser.id,
+      resource_title: updatedUser.name,
+      details: `Student updated profile: ${profileChangeSummary}`,
+      old_value: `${currentUser.name} (${currentUser.email_address})`,
+      new_value: `${updatedUser.name} (${updatedUser.email_address})`,
+    })
     return { success: true }
   }
 

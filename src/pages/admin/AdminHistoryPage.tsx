@@ -18,6 +18,8 @@ import {
   Pencil,
   LogIn,
   UserPlus,
+  Bot,
+  Sparkles,
 } from "lucide-react"
 import { fetchActivityHistory, ActivityRecord } from "../../lib/activityHistory"
 import { useAuth } from "../../context/AuthContext"
@@ -128,6 +130,10 @@ export default function AdminHistoryPage() {
         return <BookOpen className="w-3.5 h-3.5 text-emerald-600" />
       case "user":
         return <User className="w-3.5 h-3.5 text-purple-600" />
+      case "chat":
+        return <Bot className="w-3.5 h-3.5 text-emerald-500" />
+      case "reaction":
+        return <Sparkles className="w-3.5 h-3.5 text-amber-500" />
       default:
         return <Clock className="w-3.5 h-3.5 text-stone-400" />
     }
@@ -194,6 +200,8 @@ export default function AdminHistoryPage() {
               <option value="auth">Authentication (Login/Signup)</option>
               <option value="note">Study Notes</option>
               <option value="comment">Discussion Comments</option>
+              <option value="chat">AI Tutor Chat</option>
+              <option value="reaction">Reactions</option>
               <option value="lesson">Lessons & Topics</option>
               <option value="user">User Accounts</option>
             </select>
@@ -328,8 +336,49 @@ export default function AdminHistoryPage() {
                       </div>
                     </td>
 
-                    <td className="py-3 px-3 text-stone-700 max-w-md">
-                      <p className="line-clamp-2 leading-relaxed">{log.details}</p>
+                    <td className="py-3 px-3 text-stone-700 max-w-lg">
+                      <p className="leading-relaxed font-medium break-words text-stone-900">{log.details}</p>
+                      {(log.old_value || log.new_value) && (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] font-mono">
+                          {log.old_value && !log.new_value && (
+                            <span
+                              className="px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 line-through max-w-md break-words inline-block"
+                              title={`Deleted value: ${log.old_value}`}
+                            >
+                              <span className="no-underline font-semibold text-[10px] uppercase tracking-wider text-rose-500 mr-1">Destroyed:</span>
+                              {log.old_value}
+                            </span>
+                          )}
+                          {!log.old_value && log.new_value && (
+                            <span
+                              className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 max-w-md break-words inline-block"
+                              title={`Created value: ${log.new_value}`}
+                            >
+                              <span className="font-semibold text-[10px] uppercase tracking-wider text-emerald-600 mr-1">Value:</span>
+                              {log.new_value}
+                            </span>
+                          )}
+                          {log.old_value && log.new_value && (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span
+                                className="px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 line-through max-w-md break-words inline-block"
+                                title={`Previous value: ${log.old_value}`}
+                              >
+                                <span className="no-underline font-semibold text-[10px] uppercase tracking-wider text-rose-500 mr-1">Was:</span>
+                                {log.old_value}
+                              </span>
+                              <span className="text-stone-400 font-bold">&rarr;</span>
+                              <span
+                                className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 max-w-md break-words inline-block"
+                                title={`New value: ${log.new_value}`}
+                              >
+                                <span className="font-semibold text-[10px] uppercase tracking-wider text-emerald-600 mr-1">Now:</span>
+                                {log.new_value}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))

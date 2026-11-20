@@ -72,16 +72,18 @@ export default function ReactionBar({
     setShowPicker(false)
 
     // If a reaction was added, send notification to owner if present
-    if (isAdding && ownerId) {
-      addReactionNotification({
-        ownerId,
-        actorId: currentUser.id,
-        actorName: currentUser.name,
-        entityType,
-        entityId,
-        emoji,
-        contentPreview,
-      })
+    if (isAdding) {
+      if (ownerId) {
+        addReactionNotification({
+          ownerId,
+          actorId: currentUser.id,
+          actorName: currentUser.name,
+          entityType,
+          entityId,
+          emoji,
+          contentPreview,
+        })
+      }
 
       logActivity({
         user_id: currentUser.id,
@@ -91,7 +93,20 @@ export default function ReactionBar({
         action: "create",
         resource_type: "reaction",
         resource_id: entityId,
-        details: `Reacted ${emoji} on ${entityType} #${entityId}`,
+        details: `Added reaction "${emoji}" on ${entityType} #${entityId}${contentPreview ? `: "${contentPreview}"` : ""}`,
+        new_value: emoji,
+      })
+    } else {
+      logActivity({
+        user_id: currentUser.id,
+        user_name: currentUser.name,
+        user_email: currentUser.email_address,
+        user_role: currentUser.role,
+        action: "destroy",
+        resource_type: "reaction",
+        resource_id: entityId,
+        details: `Removed reaction "${emoji}" from ${entityType} #${entityId}${contentPreview ? `: "${contentPreview}"` : ""}`,
+        old_value: emoji,
       })
     }
   }

@@ -57,7 +57,8 @@ export default function ChatRoom({ lesson, onCommentCountChange }: ChatRoomProps
         lesson.id,
         currentUser.id,
         content.trim(),
-        replyingTo ? replyingTo.id : null
+        replyingTo ? replyingTo.id : null,
+        currentUser
       )
 
       const updated = [...comments, newComment]
@@ -87,7 +88,7 @@ export default function ChatRoom({ lesson, onCommentCountChange }: ChatRoomProps
 
     setIsUpdating(true)
     try {
-      const updated = await updateLessonComment(commentId, currentUser.id, editContent.trim())
+      const updated = await updateLessonComment(commentId, currentUser.id, editContent.trim(), currentUser)
       setComments((prev) =>
         prev.map((c) =>
           c.id === commentId
@@ -109,7 +110,7 @@ export default function ChatRoom({ lesson, onCommentCountChange }: ChatRoomProps
     if (!confirm("Are you sure you want to delete this message?")) return
 
     try {
-      await deleteLessonComment(commentId, currentUser.id)
+      await deleteLessonComment(commentId, currentUser.id, currentUser)
       const updated = comments.filter((c) => c.id !== commentId && c.parent_id !== commentId)
       setComments(updated)
       onCommentCountChange?.(updated.length)
